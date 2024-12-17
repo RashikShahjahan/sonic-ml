@@ -108,38 +108,6 @@ class Tokenizer:
             "attention_mask": attention_mask
         }
 
-def train_vocab(vocab_size: int, dataset: Dataset):
-    # Convert dataset to list of strings
-    train_text = dataset["train"]['text']
-    
-    # Create a temporary file to write the text data
-    with open("temp_train_data.txt", "w", encoding="utf-8") as f:
-        for text in train_text:
-            f.write(text + "\n")
-    
-    # Train the tokenizer using the temporary file
-    spm.SentencePieceTrainer.train(
-        input="temp_train_data.txt",
-        model_prefix="tokenizer",
-        model_type="bpe",
-        vocab_size=vocab_size,
-        self_test_sample_size=0,
-        input_format="text",
-        character_coverage=1.0,
-        num_threads=os.cpu_count(),
-        split_digits=True,
-        allow_whitespace_only_pieces=True,
-        byte_fallback=True,
-        unk_surface=r" \342\201\207 ",
-        normalization_rule_name="identity",
-        pad_id=3,
-        bos_id=1,
-        eos_id=2,
-        unk_id=0,
-        pad_piece="[PAD]",
-    )
-    
-    # Optionally, clean up the temporary file
-    os.remove("temp_train_data.txt")
+
     
 
