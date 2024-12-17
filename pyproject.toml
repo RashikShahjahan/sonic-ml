@@ -5,8 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
+    "datasets>=3.2.0",
     "flytekit>=1.14.0",
     "numpy>=2.2.0",
+    "sentencepiece>=0.2.0",
     "tiktoken>=0.8.0",
     "torch>=2.5.1",
     "transformers>=4.47.0",

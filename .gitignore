@@ -8,3 +8,8 @@ wheels/
 
 # Virtual environments
 .venv
+
+*.pth
+*.bin
+*.model
+*.vocab
