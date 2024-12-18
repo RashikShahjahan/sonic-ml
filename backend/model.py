@@ -1,15 +1,15 @@
 import math
 import inspect
-from dataclasses import dataclass
 from typing import  Optional, Tuple
 
 import torch
 import torch.nn.functional as F
 from torch import nn
+from dataclasses import dataclass
+from typing import Optional
 
 @dataclass
 class ModelArgs:
-    # default hyperparameters for the Llama 7B model
     dim: int = 4096
     n_layers: int = 32
     n_heads: int = 32

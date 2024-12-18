@@ -1,9 +1,7 @@
 import torch
 from model import Transformer
-from tokenizer import Tokenizer
 from model import ModelArgs
-from typing import List
-from tokenizer import Tokenizer
+
 
 # -----------------------------------------------------------------------------
 # sampling utils
@@ -33,28 +31,38 @@ def sample_top_p(probs, p):
     return next_token
 
 def save_checkpoint(model: Transformer, optimizer: torch.optim.Optimizer, epoch: int, loss: float, path: str):
+    """Save model checkpoint including model arguments for complete restoration"""
     torch.save({
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
+        'model_args': model.params.__dict__,  # Save model arguments as dictionary
     }, path)
 
 
 
-def load_model(checkpoint_path: str, model_args: ModelArgs) -> Transformer:
-    """Load the trained model from a checkpoint."""
-    model = Transformer(model_args)
-    checkpoint = torch.load(checkpoint_path, weights_only=True)  # Add weights_only=True for security
+def load_model(model_path: str) -> Transformer:
+    """
+    Load a trained transformer model from a given path.
     
-    # Handle different checkpoint formats
-    if isinstance(checkpoint, dict):
-        state_dict = checkpoint.get('model_state_dict', checkpoint)
-    else:
-        state_dict = checkpoint
+    Args:
+        model_path: Path to the saved model state dict
         
-    model.load_state_dict(state_dict)
-    model.eval()
+    Returns:
+        Loaded Transformer model
+    """
+    # Load the checkpoint
+    checkpoint = torch.load(model_path)
+    print(checkpoint.keys())
+    
+    # Initialize model with saved args
+    model_args = ModelArgs(**checkpoint['model_args'])
+    model = Transformer(model_args)
+    
+    # Load the state dict
+    model.load_state_dict(checkpoint['model_state_dict'])
+    
     return model
 
 
