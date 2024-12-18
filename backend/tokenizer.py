@@ -1,22 +1,11 @@
-# Taken from llama code and lightly modified
-# Copyright (c) Meta Platforms, Inc. and affiliates.
-# This software may be used and distributed according to the terms of the Llama 2 Community License Agreement.
-
 import os
 import struct
-from datasets import Dataset
 from typing import List
-
 from sentencepiece import SentencePieceProcessor
-import sentencepiece as spm
-
-
-TOKENIZER_MODEL = "tokenizer.model" # the llama sentencepiece tokenizer model
 
 class Tokenizer:
     def __init__(self, tokenizer_model=None):
-        model_path = tokenizer_model if tokenizer_model else TOKENIZER_MODEL
-        assert os.path.isfile(model_path), model_path
+        model_path = tokenizer_model
         self.sp_model = SentencePieceProcessor(model_file=model_path)
         self.model_path = model_path
 
