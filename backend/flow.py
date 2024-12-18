@@ -14,14 +14,14 @@ from utils import load_model
 from flytekit import task, workflow
 
 
-def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, tokenizer_model: str) -> DataLoader:
+def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, tokenizer_prefix: str) -> DataLoader:
     """Preprocess a raw dataset into a DataLoader for training.
     
     Args:
         dataset (Dataset): The raw dataset containing text samples
         batch_size (int): Number of samples per batch
         max_seq_len (int): Maximum sequence length for truncation
-        tokenizer_model (str): Path to the tokenizer model file
+        tokenizer_prefix (str): Prefix for the tokenizer model file
         
     Returns:
         DataLoader: A DataLoader instance that yields batches of:
@@ -35,7 +35,7 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
     4. Returns a DataLoader with multi-processing support
     """
     # Construct full path to tokenizer model
-    tokenizer_path = os.path.join("tokenizers", f"{tokenizer_model}.model")
+    tokenizer_path = os.path.join("tokenizers", f"{tokenizer_prefix}.model")
 
     tokenizer = Tokenizer(tokenizer_path)
 
@@ -86,7 +86,7 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
           vocab_size: int, max_seq_len: int, dataset: Dataset, model_id: str, 
           gradient_accumulation_steps: int, dataset_path: str, chunk_indices: List[int],
-          batch_size: int, tokenizer_model: str):
+          batch_size: int, tokenizer_prefix: str):
     """Train a Transformer model on chunked dataset with gradient accumulation.
     
     Args:
@@ -103,7 +103,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         dataset_path (str): Path to the full dataset on disk
         chunk_indices (List[int]): Starting indices for each data chunk
         batch_size (int): Number of samples per batch
-        tokenizer_model (str): Path to the tokenizer model file
+        tokenizer_prefix (str): Prefix for the tokenizer model file
     
     Returns:
         Transformer: The trained model
@@ -123,8 +123,8 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         vocab_size=vocab_size, max_seq_len=max_seq_len,
     )
     model = Transformer(model_args)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=learning_rate, betas=(0.9, 0.95),device_type=device)
     model.to(device)
 
     # Initial preprocessing of first chunk
@@ -132,7 +132,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         dataset=dataset,
         batch_size=batch_size,
         max_seq_len=max_seq_len,
-        tokenizer_model=tokenizer_model
+        tokenizer_prefix=tokenizer_prefix
     )
     
     dataloader_iterator = iter(train_dataloader)
@@ -149,27 +149,22 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         try:
             batch = next(dataloader_iterator)
         except StopIteration:
-            # Load next chunk if available
             if current_chunk_idx < len(chunk_indices):
                 start_idx = chunk_indices[current_chunk_idx]
                 end_idx = start_idx + batch_size
                 
-                # Load new chunk and create new dataloader
                 full_dataset = datasets.load_from_disk(dataset_path)
-                # Get the 'train' split (or another appropriate split)
                 if isinstance(full_dataset, datasets.DatasetDict):
-                    # Use 'train' split by default, or the first available split
                     split_name = 'train' if 'train' in full_dataset else list(full_dataset.keys())[0]
                     full_dataset = full_dataset[split_name]
 
                 current_chunk = full_dataset.select(range(start_idx, end_idx))
-                dataloader_iterator = iter(preprocess_dataset(dataset=current_chunk, batch_size=batch_size, max_seq_len=max_seq_len, tokenizer_model=tokenizer_model))
+                dataloader_iterator = iter(preprocess_dataset(dataset=current_chunk, batch_size=batch_size, max_seq_len=max_seq_len, tokenizer_prefix=tokenizer_prefix))
                 current_chunk_idx += 1
                 print(f"\nLoading chunk {current_chunk_idx} of {len(chunk_indices)}")
             
             batch = next(dataloader_iterator)
         
-        # Rest of training loop remains the same
         input_ids = batch['input_ids'].to(device)
         targets = batch['targets'].to(device)
         
@@ -195,23 +190,28 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
                 f'checkpoints/{model_id}_checkpoint_step_{step}.pth',
             )
 
+        save_checkpoint(
+            model, optimizer, step, loss.item(),
+            f'checkpoints/{model_id}_checkpoint_step_{step}.pth',
+        )
+
     return model
 
 @task
 def generate_text(
     model_path: str,
-    tokenizer_model: str,
+    tokenizer_prefix: str,
     prompt: str,
-    max_new_tokens: int = 100,
-    temperature: float = 0.8,
-    top_k: int = 200,
+    max_new_tokens: int,
+    temperature: float,
+    top_k: int,
     device: str = "cuda" if torch.cuda.is_available() else "cpu"
 ) -> str:
     """Generate text continuation from a given prompt using a trained transformer model.
     
     Args:
         model_path (str): Path to the saved model checkpoint
-        tokenizer_model (str): Path to the tokenizer model file
+        tokenizer_prefix (str): Prefix for the tokenizer model file
         prompt (str): Input text to continue from
         max_new_tokens (int, optional): Maximum number of tokens to generate. Defaults to 100.
         temperature (float, optional): Controls randomness in generation. Higher values (e.g., 1.0)
@@ -231,8 +231,10 @@ def generate_text(
     3. Generates new tokens using the model
     4. Decodes the generated tokens back to text
     """
+    # Construct full path to tokenizer model
+    tokenizer_path = os.path.join("tokenizers", f"{tokenizer_prefix}.model")
+    tokenizer = Tokenizer(tokenizer_path)
     # Encode the prompt
-    tokenizer = Tokenizer(tokenizer_model)
     encoded = tokenizer.encode(prompt, bos=True, eos=False)
     tokens = torch.tensor(encoded).unsqueeze(0).to(device)  # Create a batch of size 1
     
@@ -265,7 +267,7 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
         str: Path to the directory where the dataset was saved
         
     The function performs the following steps:
-    1. Downloads the specified dataset from Hugging Face using the datasets library
+    1. Checks if the dataset is already downloaded, if not downloads the specified dataset from Hugging Face using the datasets library
     2. Saves the entire dataset to disk in the specified output directory
     3. Returns the path to the saved dataset
     
@@ -276,10 +278,12 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
         ...     output_dir='data/processed'
         ... )
     """
-    # Download the dataset
+    if os.path.exists(output_dir):
+        print(f"Dataset already downloaded at {output_dir}")
+        return output_dir
+    
     dataset = load_dataset(dataset_name, data_dir=dataset_data_dir)
     
-    # Save the dataset to disk
     dataset.save_to_disk(output_dir)
     return output_dir
 
@@ -393,8 +397,8 @@ def download_workflow(dataset_name: str, dataset_data_dir: str, output_dir: str)
 
 @workflow
 def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_size: int,
-                  dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_model: str, 
-                  model_id: str, dataset_path: str, gradient_accumulation_steps: int):
+                  dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_prefix: str, 
+                  model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int):
     """Orchestrates the complete training workflow for the transformer model.
     
     Args:
@@ -406,13 +410,14 @@ def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_
         n_layers (int): Number of transformer layers
         n_heads (int): Number of attention heads
         max_seq_len (int): Maximum sequence length for input texts
-        tokenizer_model (str): Path to the tokenizer model file
+        tokenizer_prefix (str): Prefix for the tokenizer model file
         model_id (str): Unique identifier for the model (used in checkpoint names)
         dataset_path (str): Path to the dataset on disk
         gradient_accumulation_steps (int): Number of steps to accumulate gradients
+        chunk_size (int): Number of samples per chunk
     """
     # Load the initial chunk of the dataset
-    current_chunk, chunk_indices = load_and_prepare_dataset(dataset_path=dataset_path)
+    current_chunk, chunk_indices = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
 
     
     train(
@@ -429,11 +434,11 @@ def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_
         dataset_path=dataset_path,
         chunk_indices=chunk_indices,
         batch_size=batch_size,
-        tokenizer_model=tokenizer_model
+        tokenizer_prefix=tokenizer_prefix
     )
 
 @workflow
-def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokenizer"):
+def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokenizer", chunk_size: int = 1000):
     """Workflow for training a SentencePiece tokenizer on a dataset.
     
     Args:
@@ -445,15 +450,31 @@ def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokeniz
     Returns:
         None: The tokenizer files are saved to disk in the 'tokenizers/' directory
     """
-    dataset, _ = load_and_prepare_dataset(dataset_path=dataset_path)
+    dataset, _ = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
     
     return train_tokenizer(dataset=dataset, vocab_size=vocab_size, model_prefix=model_prefix)
 
 
 
 @workflow
-def inference_workflow(model_path: str, tokenizer_model: str, prompt: str):
-    # Remove .model extension if present in tokenizer_model name
-    tokenizer_model = tokenizer_model.replace('.model', '')
-    print(generate_text(model_path=model_path, tokenizer_model=tokenizer_model, prompt=prompt))
+def inference_workflow(model_path: str, tokenizer_prefix: str, prompt: str, max_new_tokens: int = 100, temperature: float = 0.8, top_k: int = 200):
+    """Generate text using a trained model.
+    
+    Args:
+        model_path (str): Path to the saved model checkpoint
+        tokenizer_prefix (str): Prefix for the tokenizer model file (without .model extension)
+        prompt (str): Input text to continue from
+        max_new_tokens (int, optional): Maximum number of tokens to generate. Defaults to 100.
+        temperature (float, optional): Controls randomness in generation. Defaults to 0.8.
+        top_k (int, optional): Number of highest probability tokens to keep. Defaults to 200.
+    """
+    text = generate_text(
+        model_path=model_path, 
+        tokenizer_prefix=tokenizer_prefix,  # Pass the prefix only, not the full path
+        prompt=prompt, 
+        max_new_tokens=max_new_tokens, 
+        temperature=temperature, 
+        top_k=top_k
+    )
+    print(text)
 
