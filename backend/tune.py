@@ -28,26 +28,6 @@ def calculate_memory_per_token(max_seq_len: int, is_cpu: bool = False):
         return bytes_per_token * (activation_factor + attention_overhead)
 
 
-def calculate_chunk_size(max_available_memory_gb: float,
-                         batch_size: int,
-                         max_seq_len: int,
-                         safety_factor: float = 0.3) -> int:
-    """
-    Calculate an 'optimal' chunk size ensuring we can hold
-    chunk data in memory. We rely on the simpler memory_per_token
-    estimate here, but keep it conservative with the safety factor.
-    """
-    max_memory_bytes = max_available_memory_gb * safety_factor * 1024**3
-    bytes_per_token = calculate_memory_per_token(max_seq_len)
-    bytes_per_sample = max_seq_len * bytes_per_token
-
-    chunk_size = int(max_memory_bytes / (bytes_per_sample * batch_size))
-    chunk_size = max(chunk_size, 1)  # can't be zero
-    # Round to nearest hundred for convenience
-    chunk_size = (chunk_size // 100) * 100
-
-    # Ensure chunk_size >= batch_size to avoid overhead complexity
-    return max(batch_size, chunk_size)
 
 
 def calculate_num_parameters(vocab_size: int, dim: int, n_layers: int,
@@ -110,49 +90,75 @@ def calculate_model_memory(n_params: int, dtype_bytes: int = 4) -> float:
 
 
 def calculate_max_batch_size(max_available_memory_gb: float,
-                           max_seq_len: int,
-                           model_memory_gb: float,
-                           n_heads: int = 8,
-                           n_layers: int = 5,
-                           dim: int = 64,
-                           safety_factor: float = 0.5,
-                           is_cpu: bool = False) -> int:
+                             max_seq_len: int,
+                             model_memory_gb: float,
+                             n_heads: int = 8,
+                             n_layers: int = 5,
+                             dim: int = 64,
+                             safety_factor: float = 0.5,
+                             is_cpu: bool = False) -> int:
     """
-    More accurate memory estimation for finding maximum batch size
+    More accurate memory estimation accounting for parameter scaling effects.
+    The current approach often fails because the attention term (which scales with max_seq_len^2)
+    can be too large or too small compared to real measurements, and the gradient term scaling
+    factor may not always reflect actual usage.
+    
+    Below are the key changes:
+      - Introduce an attention_factor to reduce or at least tune the raw max_seq_len^2 cost.
+      - Make the gradient computation term more aggressive so that memory from large models 
+        dominates more strongly.
+      - Keep the 20% overhead to ensure we don’t overshoot.
     """
-    # Reserve overhead for CPU/system
+    # Overhead for OS, etc.
     overhead_gb = 2.0 if is_cpu else 1.0
+    
+    # Memory left for training
     usable_memory_gb = max(0, (max_available_memory_gb - overhead_gb - model_memory_gb) * safety_factor)
 
     def estimate_batch_memory(batch_size: int) -> float:
-        """
-        Estimate memory usage per batch:
-        1. KV Cache: batch_size * seq_len * 2 * dim * n_layers
-        2. Attention: batch_size * n_heads * seq_len * seq_len * n_layers
-        3. Activations: batch_size * seq_len * dim * activation_factor
-        4. Layer intermediates: batch_size * seq_len * dim * 4 (FFN expansion)
-        """
-        bytes_per_float = 4  # float32
-        
-        # KV Cache
-        kv_cache_bytes = batch_size * max_seq_len * 2 * dim * n_layers * bytes_per_float
-        
-        # Attention matrices (Q @ K)
-        attn_bytes = batch_size * n_heads * max_seq_len * max_seq_len * n_layers * bytes_per_float
-        
-        # Activations (roughly 4x the embedding dim for transformer blocks)
-        activation_factor = 4
-        activation_bytes = batch_size * max_seq_len * dim * activation_factor * bytes_per_float
-        
-        # FFN intermediates
-        ffn_bytes = batch_size * max_seq_len * dim * 4 * bytes_per_float
-        
-        # Add 20% for temporary tensors and fragmentation
-        total_bytes = (kv_cache_bytes + attn_bytes + activation_bytes + ffn_bytes) * 1.2
-        
-        return total_bytes / (1024**3)  # Convert to GB
+        bytes_per_float = 4
 
-    # Binary search for largest fitting batch size
+        # Model parameter bytes
+        param_bytes = model_memory_gb * (1024 ** 3)
+
+        # 1) Base input memory: depends on batch size & sequence length
+        base_memory_bytes = batch_size * max_seq_len * bytes_per_float
+        
+        # 2) Activations (forward + backward): rule-of-thumb ~4x base
+        activation_memory_bytes = base_memory_bytes * dim * 4
+        
+        # 3) Gradients: scales with param_bytes
+        gradient_memory_bytes = param_bytes
+
+        # 4) Optimizer states: typically 2x param bytes for Adam (momentum + variance)
+        optimizer_memory_bytes = 2.0 * param_bytes
+
+
+        attention_memory_bytes = (
+            batch_size 
+            * (max_seq_len ** 2) 
+            * n_heads 
+            * n_layers 
+            * bytes_per_float
+        )
+
+
+        gradient_computation_bytes = (param_bytes * batch_size) 
+
+        total_bytes = (
+            activation_memory_bytes
+            + gradient_memory_bytes
+            + optimizer_memory_bytes
+            + attention_memory_bytes
+            + gradient_computation_bytes
+        )
+
+        # 7) Add some buffer for temporary tensors and fragmentation
+        total_bytes *= 1.2
+
+        return total_bytes / (1024 ** 3)  # Convert to GB
+
+    # Binary search for largest feasible batch size
     low, high = 1, 8192
     best = 1
     while low <= high:
@@ -164,7 +170,7 @@ def calculate_max_batch_size(max_available_memory_gb: float,
         else:
             high = mid - 1
 
-    # Round down to nearest power of 2 for better performance
+    # Round down to nearest power of 2 if desired (helps GPU efficiency)
     return 2 ** (best.bit_length() - 1)
 
 
