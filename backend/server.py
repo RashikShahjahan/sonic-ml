@@ -32,21 +32,21 @@ print(f"Model memory: {model_memory:.2f} GB")
 # Training configuration
 total_memory_gb = 8 # Your system's total memory
 max_seq_len = 512
-total_tokens = 100000  # Desired tokens per update
+desired_tokens = 100000  
+chunk_size = 512
 
-# Get optimal training configuration with improved memory calculation
-batch_size, grad_accum_steps, chunk_size, total_used_memory_gb = find_optimal_batch_config(
-    total_tokens=total_tokens,
+batch_size, grad_accum_steps, total_used_memory_gb = find_optimal_batch_config(
+    total_tokens=desired_tokens,
     max_seq_len=max_seq_len,
     total_memory_gb=total_memory_gb,
     model_memory_gb=model_memory,
     min_batch_size=1,
-    is_cpu=True,  # Specify CPU training
+    is_cpu=True,  
     n_heads=n_heads,
     n_layers=n_layers,
     dim=dim,
-    safety_factor=0.7  # Conservative memory usage
-)
+    safety_factor=0.7 
+) 
 
 actual_tokens = batch_size * max_seq_len * grad_accum_steps
 
@@ -66,10 +66,11 @@ print(f"  Sequence Length: {max_seq_len}")
 print(f"  Batch Size: {batch_size}")
 print(f"  Gradient Accumulation Steps: {grad_accum_steps}")
 print(f"  Chunk Size: {chunk_size}")
-print(f"  Tokens per Update: {actual_tokens:,} (target: {total_tokens:,})")
+print(f"  Tokens per Update: {actual_tokens:,} (target: {desired_tokens:,})")
 print(f"{'='*50}\n")
 
 input("Review the configuration above. Press Enter to continue or Ctrl+C to abort: ")
+
 
 # Train tokenizer using local dataset
 train_vocab(
@@ -78,10 +79,9 @@ train_vocab(
     model_prefix="wikipedia_bn_tokenizer",
     chunk_size=chunk_size
 )
-"""
 # Train model using local dataset
 train_workflow(
-    num_steps=1000,
+    num_steps=10000,
     batch_size=batch_size,
     learning_rate=0.001,
     vocab_size=vocab_size,
@@ -93,14 +93,14 @@ train_workflow(
     max_seq_len=max_seq_len,
     tokenizer_prefix="wikipedia_bn_tokenizer",
     gradient_accumulation_steps=grad_accum_steps,
-    chunk_size=chunk_size
-)
+    chunk_size=chunk_size,
+    resume_from_checkpoint=True
 
-"""
+)
 
 # Inference remains the same
 inference_workflow(
-    model_path="checkpoints/wikipedia_bn_model_checkpoint_step_999.pth",
+    model_path="checkpoints/wikipedia_bn_model_checkpoint_step_9999.pth",
     prompt="আপনি কেমন আছেন?",
     tokenizer_prefix="wikipedia_bn_tokenizer"
 )

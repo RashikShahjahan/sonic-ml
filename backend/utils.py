@@ -30,10 +30,10 @@ def sample_top_p(probs, p):
     next_token = torch.gather(probs_idx, -1, next_token)
     return next_token
 
-def save_checkpoint(model: Transformer, optimizer: torch.optim.Optimizer, epoch: int, loss: float, path: str):
+def save_checkpoint(model: Transformer, optimizer: torch.optim.Optimizer, step: int, loss: float, path: str):
     """Save model checkpoint including model arguments for complete restoration"""
     torch.save({
-        'epoch': epoch,
+        'step': step,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
