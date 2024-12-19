@@ -19,9 +19,13 @@ download_workflow(
 
 # Model configuration
 vocab_size = 8192
-dim = 64
-n_layers = 5
-n_heads = 8
+
+dim = 288
+n_layers = 6
+n_heads = 6
+
+
+
 
 # Calculate training parameters
 n_params = calculate_num_parameters(vocab_size, dim, n_layers, n_heads)
@@ -30,8 +34,8 @@ print(f"Total parameters: {n_params:,}")
 print(f"Model memory: {model_memory:.2f} GB")
 
 # Training configuration
-total_memory_gb = 8 # Your system's total memory
-max_seq_len = 512
+total_memory_gb = 16 # Your system's total memory
+max_seq_len = 256
 desired_tokens = 100000  
 chunk_size = 512
 
@@ -73,20 +77,23 @@ input("Review the configuration above. Press Enter to continue or Ctrl+C to abor
 
 
 # Train tokenizer using local dataset
+"""
 train_vocab(
     vocab_size=vocab_size, 
     dataset_path="datasets/wikipedia_bn",
     model_prefix="wikipedia_bn_tokenizer",
     chunk_size=chunk_size
 )
+"""
+
 # Train model using local dataset
 train_workflow(
-    num_steps=10000,
+    num_steps=6000,
     batch_size=batch_size,
-    learning_rate=0.001,
+    learning_rate=0.0005,
     vocab_size=vocab_size,
     dataset_path="datasets/wikipedia_bn",
-    model_id="wikipedia_bn_model",
+    model_id="wikipedia_bn_model_15M",
     dim=dim,
     n_layers=n_layers,
     n_heads=n_heads,
@@ -97,10 +104,24 @@ train_workflow(
     resume_from_checkpoint=True
 
 )
+# Test inference with Wikipedia-style prompts
+test_prompts = [
+    "বাংলাদেশের ইতিহাস",     # History of Bangladesh
+    "রবীন্দ্রনাথ ঠাকুর হলেন", # Rabindranath Tagore is
+    "ঢাকা শহর হল",           # Dhaka city is
+    "সুন্দরবন হল একটি",      # The Sundarbans is a
+]
 
-# Inference remains the same
-inference_workflow(
-    model_path="checkpoints/wikipedia_bn_model_checkpoint_step_9999.pth",
-    prompt="আপনি কেমন আছেন?",
-    tokenizer_prefix="wikipedia_bn_tokenizer"
-)
+print("\nTesting inference with Wikipedia-style prompts:")
+print("="*50)
+for prompt in test_prompts:
+    print(f"\nPrompt: {prompt}")
+    inference_workflow(
+        model_path="checkpoints/wikipedia_bn_model_15M_checkpoint_step_99.pth",
+        prompt=prompt,
+        tokenizer_prefix="wikipedia_bn_tokenizer"
+    )
+    print("-"*50)
+
+
+

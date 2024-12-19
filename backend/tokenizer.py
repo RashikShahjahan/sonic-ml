@@ -14,13 +14,6 @@ class Tokenizer:
         self.bos_id: int = self.sp_model.bos_id()
         self.eos_id: int = self.sp_model.eos_id()
         self.pad_id: int = self.sp_model.pad_id()
-        
-        # Print these values for debugging
-        print(f"Tokenizer initialized with:")
-        print(f"- vocab_size: {self.n_words}")
-        print(f"- bos_id: {self.bos_id}")
-        print(f"- eos_id: {self.eos_id}")
-        print(f"- pad_id: {self.pad_id}")
 
     def encode(self, s: str, bos: bool, eos: bool) -> List[int]:
         assert type(s) is str

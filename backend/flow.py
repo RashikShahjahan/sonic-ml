@@ -1,85 +1,16 @@
 import torch
 from datasets import load_dataset, Dataset
 import datasets
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 from model import Transformer, ModelArgs
 from tokenizer import  Tokenizer
-from utils import save_checkpoint
+from utils import save_checkpoint, load_model, preprocess_dataset
 from tokenizer import Tokenizer
 import os
 import sentencepiece as spm
 from typing import List
-from utils import load_model
-from flytekit import task, workflow
-from tune import log_memory_usage
 
 
-def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, tokenizer_prefix: str) -> DataLoader:
-    """Preprocess a raw dataset into a DataLoader for training.
-    
-    Args:
-        dataset (Dataset): The raw dataset containing text samples
-        batch_size (int): Number of samples per batch
-        max_seq_len (int): Maximum sequence length for truncation
-        tokenizer_prefix (str): Prefix for the tokenizer model file
-        
-    Returns:
-        DataLoader: A DataLoader instance that yields batches of:
-            - input_ids: Tensor of tokenized and padded input sequences
-            - targets: Tensor of shifted input sequences for next-token prediction
-            
-    The function performs the following steps:
-    1. Tokenizes the raw text using the specified tokenizer
-    2. Pads sequences to the same length within each batch
-    3. Creates target sequences by shifting input sequences
-    4. Returns a DataLoader with multi-processing support
-    """
-    # Construct full path to tokenizer model
-    tokenizer_path = os.path.join("tokenizers", f"{tokenizer_prefix}.model")
-
-    tokenizer = Tokenizer(tokenizer_path)
-
-    def collate_fn(batch:List[dict]):
-        # Combine all input_ids into one dictionary
-        combined = {
-            'input_ids': [item['input_ids'][:max_seq_len] for item in batch]  # Truncate to max_seq_len
-        }
-        # Use the tokenizer's pad method to pad the sequences
-        padded = tokenizer.pad(combined)
-            
-        # Create targets by shifting input_ids right by 1
-        input_ids = padded['input_ids']
-        targets = input_ids.clone()
-        targets = torch.roll(targets, -1, dims=1)
-        targets[:, -1] = tokenizer.pad_id
-            
-        return {
-            'input_ids': input_ids,
-            'targets': targets
-        }
-
-    def tokenize_function(examples: dict):
-        tokenized = [tokenizer.encode(text, bos=True, eos=True) for text in examples['text']]
-        return {'input_ids': tokenized}
-    
-    tokenized_dataset = dataset.map(
-            tokenize_function,
-            batched=True,
-        )
-
-    train_dataloader = DataLoader(
-        tokenized_dataset,
-        batch_size=batch_size,
-        shuffle=True,
-        collate_fn=collate_fn,
-        num_workers=os.cpu_count(),
-        pin_memory=True,
-        prefetch_factor=2,
-        persistent_workers=True
-    )
-
-    return train_dataloader
 
 
 
@@ -104,6 +35,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         chunk_indices (List[int]): Starting indices for each data chunk
         batch_size (int): Number of samples per batch
         tokenizer_prefix (str): Prefix for the tokenizer model file
+        resume_from_checkpoint (bool, optional): Whether to resume from a previous checkpoint. Defaults to False.
     
     Returns:
         Transformer: The trained model
@@ -118,9 +50,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     3. Uses gradient accumulation for effective larger batch sizes
     4. Processes dataset in chunks to handle large datasets
     """
-    # Log initial memory state
-    print("\nInitial Memory State:")
-    log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
+
     
     model_args = ModelArgs(
         dim=dim, n_layers=n_layers, n_heads=n_heads,
@@ -146,21 +76,16 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
             print(f"\nResuming from checkpoint: {checkpoint_path}")
             
             # Load the checkpoint
-            checkpoint = torch.load(checkpoint_path)
+            checkpoint = torch.load(checkpoint_path,weights_only=True)
             model.load_state_dict(checkpoint['model_state_dict'])
             optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
             start_step = checkpoint['step'] + 1
             print(f"Resuming from step {start_step}")
+            # When resuming, num_steps represents additional steps
+            num_steps = start_step + num_steps
 
     model.to(device)
     
-    # Log memory after model creation
-    print("\nAfter Model Creation:")
-    log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
-    
-    # Log memory after moving model to device
-    print("\nAfter Moving Model to Device:")
-    log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
     
     # Initial preprocessing of first chunk
     train_dataloader = preprocess_dataset(
@@ -176,6 +101,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     # Training loop
     model.train()
     total_loss = 0
+    print(f"{start_step} {num_steps} ")
     progress_bar = tqdm(range(start_step, num_steps), desc="Training")
     
     optimizer.zero_grad()
@@ -225,12 +151,10 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         
         progress_bar.set_postfix({'loss': loss.item() * gradient_accumulation_steps})
         
-        if (step + 1) % 500 == 0:
-            avg_loss = total_loss / 500
+        if (step + 1) % 100 == 0:
+            avg_loss = total_loss / 100
             print(f"Step {step + 1}, Average loss: {avg_loss}")
             
-            # Log memory usage every 100 steps
-            log_memory_usage(step + 1, batch_size, max_seq_len, torch.cuda.is_available())
             
             total_loss = 0
             save_checkpoint(
