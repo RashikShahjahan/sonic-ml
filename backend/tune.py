@@ -201,8 +201,7 @@ def find_optimal_batch_config(total_tokens: int,
     tokens_per_batch = batch_size * max_seq_len
     grad_accum_steps = max(1, (total_tokens + tokens_per_batch - 1) // tokens_per_batch)
 
-    # 3) Use constant chunk size of 1000
-    chunk_size = 500
+ 
 
     # 4) Final memory usage with that batch size
     attn_bytes = (batch_size * max_seq_len * max_seq_len * n_heads * 4 * n_layers)
@@ -211,7 +210,7 @@ def find_optimal_batch_config(total_tokens: int,
     act_gb = act_bytes / (1024**3)
     total_used_memory_gb = model_memory_gb + attn_gb + act_gb
 
-    return batch_size, grad_accum_steps, chunk_size, total_used_memory_gb
+    return batch_size, grad_accum_steps, total_used_memory_gb
 
 
 def measure_memory_usage(is_cuda: bool = False) -> tuple[float, Optional[float]]:

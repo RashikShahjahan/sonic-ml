@@ -86,7 +86,7 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
           vocab_size: int, max_seq_len: int, dataset: Dataset, model_id: str, 
           gradient_accumulation_steps: int, dataset_path: str, chunk_indices: List[int],
-          batch_size: int, tokenizer_prefix: str):
+          batch_size: int, tokenizer_prefix: str, resume_from_checkpoint: bool = False):
     """Train a Transformer model on chunked dataset with gradient accumulation.
     
     Args:
@@ -129,13 +129,34 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     model = Transformer(model_args)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
+    # Initialize optimizer
+    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=learning_rate, 
+                                        betas=(0.9, 0.95), device_type=device)
+    
+    # Load checkpoint if resuming
+    start_step = 0
+    if resume_from_checkpoint:
+        # Find the latest checkpoint
+        checkpoint_dir = 'checkpoints'
+        checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith(f'{model_id}_checkpoint_step_')]
+        if checkpoints:
+            # Get the checkpoint with the highest step number
+            latest_checkpoint = max(checkpoints, key=lambda x: int(x.split('_step_')[1].split('.')[0]))
+            checkpoint_path = os.path.join(checkpoint_dir, latest_checkpoint)
+            print(f"\nResuming from checkpoint: {checkpoint_path}")
+            
+            # Load the checkpoint
+            checkpoint = torch.load(checkpoint_path)
+            model.load_state_dict(checkpoint['model_state_dict'])
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+            start_step = checkpoint['step'] + 1
+            print(f"Resuming from step {start_step}")
+
+    model.to(device)
+    
     # Log memory after model creation
     print("\nAfter Model Creation:")
     log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
-    
-    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=learning_rate, 
-                                        betas=(0.9, 0.95), device_type=device)
-    model.to(device)
     
     # Log memory after moving model to device
     print("\nAfter Moving Model to Device:")
@@ -155,7 +176,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     # Training loop
     model.train()
     total_loss = 0
-    progress_bar = tqdm(range(num_steps), desc="Training")
+    progress_bar = tqdm(range(start_step, num_steps), desc="Training")
     
     optimizer.zero_grad()
     
@@ -204,8 +225,8 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         
         progress_bar.set_postfix({'loss': loss.item() * gradient_accumulation_steps})
         
-        if (step + 1) % 100 == 0:
-            avg_loss = total_loss / 100
+        if (step + 1) % 500 == 0:
+            avg_loss = total_loss / 500
             print(f"Step {step + 1}, Average loss: {avg_loss}")
             
             # Log memory usage every 100 steps
@@ -217,10 +238,6 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
                 f'checkpoints/{model_id}_checkpoint_step_{step}.pth',
             )
 
-        save_checkpoint(
-            model, optimizer, step, loss.item(),
-            f'checkpoints/{model_id}_checkpoint_step_{step}.pth',
-        )
 
     return model
 
@@ -419,7 +436,8 @@ def download_workflow(dataset_name: str, dataset_data_dir: str, output_dir: str)
 
 def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_size: int,
                   dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_prefix: str, 
-                  model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int):
+                  model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int,
+                  resume_from_checkpoint: bool = False):
     """Orchestrates the complete training workflow for the transformer model.
     
     Args:
@@ -455,7 +473,8 @@ def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_
         dataset_path=dataset_path,
         chunk_indices=chunk_indices,
         batch_size=batch_size,
-        tokenizer_prefix=tokenizer_prefix
+        tokenizer_prefix=tokenizer_prefix,
+        resume_from_checkpoint=resume_from_checkpoint
     )
 
 def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokenizer", chunk_size: int = 1000):
