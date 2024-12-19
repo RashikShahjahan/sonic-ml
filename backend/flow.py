@@ -12,6 +12,7 @@ import sentencepiece as spm
 from typing import List
 from utils import load_model
 from flytekit import task, workflow
+from tune import log_memory_usage
 
 
 def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, tokenizer_prefix: str) -> DataLoader:
@@ -82,7 +83,6 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
 
 
 
-@task
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
           vocab_size: int, max_seq_len: int, dataset: Dataset, model_id: str, 
           gradient_accumulation_steps: int, dataset_path: str, chunk_indices: List[int],
@@ -118,15 +118,29 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     3. Uses gradient accumulation for effective larger batch sizes
     4. Processes dataset in chunks to handle large datasets
     """
+    # Log initial memory state
+    print("\nInitial Memory State:")
+    log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
+    
     model_args = ModelArgs(
         dim=dim, n_layers=n_layers, n_heads=n_heads,
         vocab_size=vocab_size, max_seq_len=max_seq_len,
     )
     model = Transformer(model_args)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=learning_rate, betas=(0.9, 0.95),device_type=device)
+    
+    # Log memory after model creation
+    print("\nAfter Model Creation:")
+    log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
+    
+    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=learning_rate, 
+                                        betas=(0.9, 0.95), device_type=device)
     model.to(device)
-
+    
+    # Log memory after moving model to device
+    print("\nAfter Moving Model to Device:")
+    log_memory_usage(0, batch_size, max_seq_len, torch.cuda.is_available())
+    
     # Initial preprocessing of first chunk
     train_dataloader = preprocess_dataset(
         dataset=dataset,
@@ -149,19 +163,28 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         try:
             batch = next(dataloader_iterator)
         except StopIteration:
-            if current_chunk_idx < len(chunk_indices):
-                start_idx = chunk_indices[current_chunk_idx]
-                end_idx = start_idx + batch_size
+            if current_chunk_idx >= len(chunk_indices):
+                print("\nReached end of dataset, restarting from first chunk")
+                current_chunk_idx = 0  # Reset to beginning
                 
-                full_dataset = datasets.load_from_disk(dataset_path)
-                if isinstance(full_dataset, datasets.DatasetDict):
-                    split_name = 'train' if 'train' in full_dataset else list(full_dataset.keys())[0]
-                    full_dataset = full_dataset[split_name]
+            start_idx = chunk_indices[current_chunk_idx]
+            end_idx = chunk_indices[current_chunk_idx + 1] if current_chunk_idx + 1 < len(chunk_indices) else None
+            
+            full_dataset = datasets.load_from_disk(dataset_path)
+            if isinstance(full_dataset, datasets.DatasetDict):
+                split_name = 'train' if 'train' in full_dataset else list(full_dataset.keys())[0]
+                full_dataset = full_dataset[split_name]
 
-                current_chunk = full_dataset.select(range(start_idx, end_idx))
-                dataloader_iterator = iter(preprocess_dataset(dataset=current_chunk, batch_size=batch_size, max_seq_len=max_seq_len, tokenizer_prefix=tokenizer_prefix))
-                current_chunk_idx += 1
-                print(f"\nLoading chunk {current_chunk_idx} of {len(chunk_indices)}")
+            current_chunk = full_dataset.select(range(start_idx, end_idx) if end_idx else range(start_idx, len(full_dataset)))
+            train_dataloader = preprocess_dataset(
+                dataset=current_chunk, 
+                batch_size=batch_size, 
+                max_seq_len=max_seq_len, 
+                tokenizer_prefix=tokenizer_prefix
+            )
+            dataloader_iterator = iter(train_dataloader)
+            current_chunk_idx += 1
+            print(f"\nLoading chunk {current_chunk_idx} of {len(chunk_indices)}")
             
             batch = next(dataloader_iterator)
         
@@ -184,6 +207,10 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         if (step + 1) % 100 == 0:
             avg_loss = total_loss / 100
             print(f"Step {step + 1}, Average loss: {avg_loss}")
+            
+            # Log memory usage every 100 steps
+            log_memory_usage(step + 1, batch_size, max_seq_len, torch.cuda.is_available())
+            
             total_loss = 0
             save_checkpoint(
                 model, optimizer, step, loss.item(),
@@ -197,7 +224,6 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
 
     return model
 
-@task
 def generate_text(
     model_path: str,
     tokenizer_prefix: str,
@@ -254,7 +280,6 @@ def generate_text(
     generated_text = tokenizer.decode(generated_tokens[0].tolist())
     return generated_text
 
-@task
 def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) -> str:
     """Download a dataset from Hugging Face and save it locally.
     
@@ -287,7 +312,6 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
     dataset.save_to_disk(output_dir)
     return output_dir
 
-@task
 def load_and_prepare_dataset(dataset_path: str, chunk_size: int = 1000) -> tuple[Dataset, list[int]]:
     """Load a dataset from local storage and prepare it for chunked processing.
     
@@ -330,7 +354,6 @@ def load_and_prepare_dataset(dataset_path: str, chunk_size: int = 1000) -> tuple
     return full_dataset.select(range(min(chunk_size, total_size))), indices
 
 
-@task
 def train_tokenizer(dataset: Dataset, vocab_size: int, model_prefix: str = "tokenizer") -> None:
     """Train a SentencePiece tokenizer on the provided dataset.
     
@@ -381,7 +404,6 @@ def train_tokenizer(dataset: Dataset, vocab_size: int, model_prefix: str = "toke
     
     os.remove("temp_train_data.txt")
 
-@workflow
 def download_workflow(dataset_name: str, dataset_data_dir: str, output_dir: str):
     """Workflow for downloading and saving a dataset from Hugging Face Hub locally.
     
@@ -395,7 +417,6 @@ def download_workflow(dataset_name: str, dataset_data_dir: str, output_dir: str)
 
 
 
-@workflow
 def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_size: int,
                   dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_prefix: str, 
                   model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int):
@@ -437,7 +458,6 @@ def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_
         tokenizer_prefix=tokenizer_prefix
     )
 
-@workflow
 def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokenizer", chunk_size: int = 1000):
     """Workflow for training a SentencePiece tokenizer on a dataset.
     
@@ -456,7 +476,6 @@ def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokeniz
 
 
 
-@workflow
 def inference_workflow(model_path: str, tokenizer_prefix: str, prompt: str, max_new_tokens: int = 100, temperature: float = 0.8, top_k: int = 200):
     """Generate text using a trained model.
     
