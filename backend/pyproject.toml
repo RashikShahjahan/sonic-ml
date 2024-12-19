@@ -9,6 +9,7 @@ dependencies = [
     "fastapi>=0.115.6",
     "flytekit>=1.14.0",
     "numpy>=2.2.0",
+    "psutil>=6.1.0",
     "sentencepiece>=0.2.0",
     "tiktoken>=0.8.0",
     "torch>=2.5.1",
