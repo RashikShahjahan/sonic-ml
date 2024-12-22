@@ -52,23 +52,28 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     """
 
     
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
     model_args = ModelArgs(
         dim=dim, n_layers=n_layers, n_heads=n_heads,
         vocab_size=vocab_size, max_seq_len=max_seq_len,
     )
     model = Transformer(model_args)
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
     # Initialize optimizer
-    optimizer = model.configure_optimizers(weight_decay=0.1, learning_rate=learning_rate, 
-                                        betas=(0.9, 0.95), device_type=device)
+    optimizer = model.configure_optimizers(
+        weight_decay=0.1,
+        learning_rate=learning_rate, 
+        betas=(0.9, 0.95),
+        device_type=device
+    )
     
     # Load checkpoint if resuming
     start_step = 0
     if resume_from_checkpoint:
         # Find the latest checkpoint
-        checkpoint_dir = 'checkpoints'
-        checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith(f'{model_id}_checkpoint_step_')]
+        checkpoint_dir = f'checkpoints/{model_id}'
+        checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith(f'checkpoint_step_')]
         if checkpoints:
             # Get the checkpoint with the highest step number
             latest_checkpoint = max(checkpoints, key=lambda x: int(x.split('_step_')[1].split('.')[0]))
@@ -151,17 +156,15 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         
         progress_bar.set_postfix({'loss': loss.item() * gradient_accumulation_steps})
         
-        if (step + 1) % 100 == 0:
-            avg_loss = total_loss / 100
+        if (step + 1) % 500 == 0:
+            avg_loss = total_loss / 500
             print(f"Step {step + 1}, Average loss: {avg_loss}")
-            
-            
+            os.makedirs(f'checkpoints/{model_id}', exist_ok=True)
             total_loss = 0
             save_checkpoint(
                 model, optimizer, step, loss.item(),
-                f'checkpoints/{model_id}_checkpoint_step_{step}.pth',
+                f'checkpoints/{model_id}/checkpoint_step_{step}.pth',
             )
-
 
     return model
 
