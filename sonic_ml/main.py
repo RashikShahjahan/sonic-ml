@@ -88,9 +88,7 @@ def main():
     train_vocab_parser.add_argument('--vocab_size', type=int, default=4096, help='Vocabulary size')
     train_vocab_parser.add_argument('--chunk_size', type=int, default=512, help='Chunk size')
     train_vocab_parser.add_argument('--model_id', required=True, help='Model ID')
-    train_vocab_parser.add_argument('--ssh_host', help='SSH host')
-    train_vocab_parser.add_argument('--ssh_user', help='SSH user')
-    train_vocab_parser.add_argument('--ssh_password', help='SSH password')
+
     # Eval command
     eval_parser = subparsers.add_parser('eval_model', help='Evaluate model')
     eval_parser.add_argument('--model_id', required=True, help='Model ID')
