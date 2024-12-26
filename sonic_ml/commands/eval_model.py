@@ -2,7 +2,9 @@ import torch
 import os
 from sonic_ml.tokenizer.tokenizer import  Tokenizer
 from sonic_ml.utils.utils import load_model
+from flytekit import task, workflow
 
+@task
 def generate_text(
     model_path: str,
     tokenizer_prefix: str,
@@ -59,21 +61,20 @@ def generate_text(
     generated_text = tokenizer.decode(generated_tokens[0].tolist())
     return generated_text
 
-def inference_workflow(model_id: str, tokenizer_prefix: str, prompt: str, max_new_tokens: int = 100, temperature: float = 0.8, top_k: int = 200)->str:
-    """Generate text using a trained model.
-    
-    Args:
-        model_id (str): Model ID
-        prompt (str): Input text to continue from
-        max_new_tokens (int, optional): Maximum number of tokens to generate. Defaults to 100.
-        temperature (float, optional): Controls randomness in generation. Defaults to 0.8.
-        top_k (int, optional): Number of highest probability tokens to keep. Defaults to 200.
-    """
-    checkpoint_dir = f'checkpoints/{model_id}'
-    checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith(f'checkpoint_step_')]
+@task
+def get_latest_checkpoint(model_id: str) -> str:
+    """Get the path to the latest checkpoint for a given model ID."""
+    checkpoint_dir = os.path.join('checkpoints', model_id)
+    checkpoints = [f for f in os.listdir(checkpoint_dir) if f.startswith('checkpoint_step_')]
     # Get the checkpoint with the highest step number
     latest_checkpoint = max(checkpoints, key=lambda x: int(x.split('_step_')[1].split('.')[0]))
-    checkpoint_path = os.path.join(checkpoint_dir, latest_checkpoint)   
+    return os.path.join(checkpoint_dir, latest_checkpoint)
+
+@workflow
+def inference_workflow(model_id: str, tokenizer_prefix: str, prompt: str, max_new_tokens: int = 100, temperature: float = 0.8, top_k: int = 200) -> str:
+    """Generate text using a trained model."""
+    checkpoint_path = get_latest_checkpoint(model_id=model_id)
+    
     text = generate_text(
         model_path=checkpoint_path, 
         tokenizer_prefix=tokenizer_prefix,  

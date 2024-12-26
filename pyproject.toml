@@ -8,6 +8,7 @@ dependencies = [
     "datasets>=3.2.0",
     "flytekit>=1.14.0",
     "numpy>=2.2.0",
+    "paramiko>=3.5.0",
     "sentencepiece>=0.2.0",
     "setuptools>=75.6.0",
     "tiktoken>=0.8.0",

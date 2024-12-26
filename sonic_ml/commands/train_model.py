@@ -7,10 +7,12 @@ from sonic_ml.architectures.llama2 import Transformer, ModelArgs
 from sonic_ml.utils.utils import save_checkpoint, preprocess_dataset
 from datasets import Dataset
 from sonic_ml.utils.utils import load_and_prepare_dataset
+from flytekit import task, workflow
 
+@task   
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
-          vocab_size: int, max_seq_len: int, dataset: Dataset, model_id: str, 
-          gradient_accumulation_steps: int, dataset_path: str, chunk_indices: List[int],
+          vocab_size: int, max_seq_len: int, model_id: str, 
+          gradient_accumulation_steps: int, dataset_path: str, chunk_size: int,
           batch_size: int, tokenizer_prefix: str, resume_from_checkpoint: bool = False):
     """Train a Transformer model on chunked dataset with gradient accumulation.
     
@@ -22,11 +24,10 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         n_heads (int): Number of attention heads
         vocab_size (int): Size of the vocabulary
         max_seq_len (int): Maximum sequence length for input texts
-        dataset (Dataset): Initial chunk of the dataset to start training
         model_id (str): Unique identifier for the model (used in checkpoint names)
         gradient_accumulation_steps (int): Number of steps to accumulate gradients
-        dataset_path (str): Path to the full dataset on disk
-        chunk_indices (List[int]): Starting indices for each data chunk
+        dataset_path (str): Path to the dataset on disk
+        chunk_size (int): Number of samples per chunk
         batch_size (int): Number of samples per batch
         tokenizer_prefix (str): Prefix for the tokenizer model file
         resume_from_checkpoint (bool, optional): Whether to resume from a previous checkpoint. Defaults to False.
@@ -44,7 +45,8 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     3. Uses gradient accumulation for effective larger batch sizes
     4. Processes dataset in chunks to handle large datasets
     """
-
+    # Move dataset loading into the task
+    current_chunk, chunk_indices = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
     
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     
@@ -88,7 +90,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     
     # Initial preprocessing of first chunk
     train_dataloader = preprocess_dataset(
-        dataset=dataset,
+        dataset=current_chunk,
         batch_size=batch_size,
         max_seq_len=max_seq_len,
         tokenizer_prefix=tokenizer_prefix
@@ -162,7 +164,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
 
     return model
 
-
+@workflow
 def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_size: int,
                   dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_prefix: str, 
                   model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int,
@@ -184,10 +186,7 @@ def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_
         gradient_accumulation_steps (int): Number of steps to accumulate gradients
         chunk_size (int): Number of samples per chunk
     """
-    # Load the initial chunk of the dataset
-    current_chunk, chunk_indices = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
-
-    
+    # Remove dataset loading from workflow
     train(
         num_steps=num_steps, 
         learning_rate=learning_rate, 
@@ -196,11 +195,10 @@ def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_
         n_heads=n_heads,
         vocab_size=vocab_size,
         max_seq_len=max_seq_len,
-        dataset=current_chunk,
         model_id=model_id,
         gradient_accumulation_steps=gradient_accumulation_steps,
         dataset_path=dataset_path,
-        chunk_indices=chunk_indices,
+        chunk_size=chunk_size,
         batch_size=batch_size,
         tokenizer_prefix=tokenizer_prefix,
         resume_from_checkpoint=resume_from_checkpoint

@@ -2,27 +2,22 @@ import os
 import sentencepiece as spm
 from datasets import Dataset
 from sonic_ml.utils.utils import load_and_prepare_dataset
-def train_tokenizer(dataset: Dataset, vocab_size: int, model_prefix: str = "tokenizer") -> None:
+from flytekit import task, workflow
+
+@task
+def train_tokenizer(dataset_path: str, vocab_size: int, chunk_size: int, model_prefix: str = "tokenizer") -> None:
     """Train a SentencePiece tokenizer on the provided dataset.
     
     Args:
-        dataset (Dataset): The dataset containing text samples in a 'text' column
+        dataset_path (str): Path to the dataset on disk
         vocab_size (int): Size of the vocabulary to generate
+        chunk_size (int): Size of chunks to process
         model_prefix (str, optional): Prefix for the output model files. Defaults to "tokenizer"
             Will create {model_prefix}.model and {model_prefix}.vocab files
-    
-    The function performs the following steps:
-    1. Writes all text samples to a temporary file
-    2. Trains a BPE tokenizer using SentencePiece with the following settings:
-        - BPE (Byte-Pair Encoding) model type
-        - Full character coverage
-        - Special token IDs: PAD=3, BOS=1, EOS=2, UNK=0
-        - Whitespace preservation and digit splitting enabled
-        - Byte fallback for unknown characters
-    3. Cleans up the temporary training file
-    
-    The resulting tokenizer files will be saved in the 'tokenizers/' directory.
     """
+    # Move dataset loading into the task
+    dataset, _ = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
+    
     # Create a temporary file to write the text data
     with open("temp_train_data.txt", "w", encoding="utf-8") as f:
         for text in dataset['text']:
@@ -52,18 +47,22 @@ def train_tokenizer(dataset: Dataset, vocab_size: int, model_prefix: str = "toke
     
     os.remove("temp_train_data.txt")
 
+@workflow
 def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokenizer", chunk_size: int = 1000):
     """Workflow for training a SentencePiece tokenizer on a dataset.
     
     Args:
         vocab_size (int): Size of the vocabulary to generate
         dataset_path (str): Path to the saved dataset on disk
-        model_prefix (str, optional): Prefix for the output model files. Defaults to "tokenizer".
-            Will create {model_prefix}.model and {model_prefix}.vocab files
+        model_prefix (str, optional): Prefix for the output model files. Defaults to "tokenizer"
+        chunk_size (int, optional): Size of chunks to process. Defaults to 1000
     
     Returns:
         None: The tokenizer files are saved to disk in the 'tokenizers/' directory
     """
-    dataset, _ = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
-    
-    return train_tokenizer(dataset=dataset, vocab_size=vocab_size, model_prefix=model_prefix)
+    return train_tokenizer(
+        dataset_path=dataset_path,
+        vocab_size=vocab_size,
+        chunk_size=chunk_size,
+        model_prefix=model_prefix
+    )

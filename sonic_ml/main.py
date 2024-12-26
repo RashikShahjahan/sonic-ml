@@ -61,7 +61,8 @@ def main():
     # Download command
     download_parser = subparsers.add_parser('download_data', help='Download dataset')
     download_parser.add_argument('--dataset_name', required=True, help='Name of the dataset to download')
-    download_parser.add_argument('--dataset_data_dir', help='Path to the dataset data directory')
+    download_parser.add_argument('--dataset_data_dir', default="", help='Path to the dataset data directory')
+
 
     # Train command
     train_parser = subparsers.add_parser('train_model', help='Train model')
@@ -79,12 +80,17 @@ def main():
     train_parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
     train_parser.add_argument('--model_id', required=True, help='Model ID')
     train_parser.add_argument('--tokenizer_prefix', required=True, help='Tokenizer prefix')
+
+
     # Train vocab command
     train_vocab_parser = subparsers.add_parser('train_vocab', help='Train vocab')
     train_vocab_parser.add_argument('--dataset', required=True, help='Dataset name')
     train_vocab_parser.add_argument('--vocab_size', type=int, default=4096, help='Vocabulary size')
     train_vocab_parser.add_argument('--chunk_size', type=int, default=512, help='Chunk size')
     train_vocab_parser.add_argument('--model_id', required=True, help='Model ID')
+    train_vocab_parser.add_argument('--ssh_host', help='SSH host')
+    train_vocab_parser.add_argument('--ssh_user', help='SSH user')
+    train_vocab_parser.add_argument('--ssh_password', help='SSH password')
     # Eval command
     eval_parser = subparsers.add_parser('eval_model', help='Evaluate model')
     eval_parser.add_argument('--model_id', required=True, help='Model ID')
@@ -93,6 +99,7 @@ def main():
     eval_parser.add_argument('--temperature', type=float, default=0.8, help='Temperature for generation')
     eval_parser.add_argument('--top_k', type=int, default=200, help='Top-k for generation')
     eval_parser.add_argument('--tokenizer_prefix', required=True, help='Tokenizer prefix')
+
 
 
     args = parser.parse_args()
