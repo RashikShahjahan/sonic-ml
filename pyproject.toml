@@ -1,19 +1,19 @@
 [project]
-name = "llm"
+name = "sonic-ml"
 version = "0.1.0"
-description = "Add your description here"
+description = "A CLI tool for training and evaluating language models"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
     "datasets>=3.2.0",
-    "fastapi>=0.115.6",
     "flytekit>=1.14.0",
     "numpy>=2.2.0",
-    "psutil>=6.1.0",
     "sentencepiece>=0.2.0",
     "setuptools>=75.6.0",
     "tiktoken>=0.8.0",
     "torch>=2.5.1",
     "transformers>=4.47.0",
-    "uvicorn>=0.34.0",
 ]
+
+[project.scripts]
+sonic = "sonic_ml.main:main"
