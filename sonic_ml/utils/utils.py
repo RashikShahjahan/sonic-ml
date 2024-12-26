@@ -1,9 +1,8 @@
 import torch
-from model import Transformer
-from model import ModelArgs
+from sonic_ml.architectures.llama2 import Transformer, ModelArgs
 from torch.utils.data import DataLoader
 from datasets import Dataset
-from tokenizer import Tokenizer
+from sonic_ml.tokenizer.tokenizer import Tokenizer
 import os
 from typing import List
 import datasets
@@ -139,3 +138,43 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
 
 
 
+def load_and_prepare_dataset(dataset_path: str, chunk_size: int = 1000) -> tuple[Dataset, list[int]]:
+    """Load a dataset from local storage and prepare it for chunked processing.
+    
+    Args:
+        dataset_path (str): Path to the saved dataset on disk
+        chunk_size (int, optional): Number of examples to include in each chunk. Defaults to 1000.
+    
+    Returns:
+        tuple[Dataset, list[int]]: A tuple containing:
+            - Dataset: The first chunk of the dataset
+            - list[int]: List of starting indices for all chunks
+            
+    The function performs the following steps:
+    1. Loads the complete dataset from disk
+    2. Calculates chunk indices based on the dataset size and chunk_size
+    3. Returns the first chunk and all chunk indices for subsequent loading
+    
+    Example:
+        >>> first_chunk, indices = load_and_prepare_dataset(
+        ...     dataset_path='data/processed/wikitext',
+        ...     chunk_size=1000
+        ... )
+        >>> print(f"First chunk size: {len(first_chunk)}")
+        >>> print(f"Total chunks: {len(indices)}")
+    """
+    # Load the dataset
+    full_dataset = datasets.load_from_disk(dataset_path)
+    
+    # Get the 'train' split (or another appropriate split)
+    if isinstance(full_dataset, datasets.DatasetDict):
+        # Use 'train' split by default, or the first available split
+        split_name = 'train' if 'train' in full_dataset else list(full_dataset.keys())[0]
+        full_dataset = full_dataset[split_name]
+    
+    # Create chunks
+    total_size = len(full_dataset)
+    indices = list(range(0, total_size, chunk_size))
+    
+    # Return the first chunk initially
+    return full_dataset.select(range(min(chunk_size, total_size))), indices
