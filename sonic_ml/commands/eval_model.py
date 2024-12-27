@@ -12,7 +12,9 @@ def generate_text(
     max_new_tokens: int,
     temperature: float,
     top_k: int,
-    device: str = "cuda" if torch.cuda.is_available() else "cpu"
+    device: str = "cuda" if torch.cuda.is_available() 
+                  else "mps" if torch.backends.mps.is_available() 
+                  else "cpu"
 ) -> str:
     """Generate text continuation from a given prompt using a trained transformer model.
     
