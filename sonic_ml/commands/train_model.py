@@ -48,7 +48,11 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
     # Move dataset loading into the task
     current_chunk, chunk_indices = load_and_prepare_dataset(dataset_path=dataset_path, chunk_size=chunk_size)
     
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device = (
+        torch.device("cuda") if torch.cuda.is_available()
+        else torch.device("mps") if torch.backends.mps.is_available()
+        else torch.device("cpu")
+    )
     
     model_args = ModelArgs(
         dim=dim, n_layers=n_layers, n_heads=n_heads,
@@ -61,7 +65,9 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         weight_decay=0.1,
         learning_rate=learning_rate, 
         betas=(0.9, 0.95),
-        device_type=device
+        device_type='cuda' if torch.cuda.is_available() 
+                   else 'mps' if torch.backends.mps.is_available() 
+                   else 'cpu'
     )
     
     # Load checkpoint if resuming
