@@ -1,11 +1,9 @@
 import torch
 import os
 from tqdm import tqdm
-from typing import List
 import datasets
 from sonic_ml.architectures.llama2 import Transformer, ModelArgs
 from sonic_ml.utils.utils import save_checkpoint, preprocess_dataset
-from datasets import Dataset
 from sonic_ml.utils.utils import load_and_prepare_dataset
 from flytekit import task, workflow
 

@@ -128,10 +128,10 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
         batch_size=batch_size,
         shuffle=True,
         collate_fn=collate_fn,
-        num_workers=os.cpu_count(),
+        num_workers=0 if os.name == 'posix' else os.cpu_count(),
         pin_memory=True,
-        prefetch_factor=2,
-        persistent_workers=True
+        prefetch_factor=None if os.name == 'posix' else 2,
+        persistent_workers=False if os.name == 'posix' else True
     )
 
     return train_dataloader
