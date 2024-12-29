@@ -64,8 +64,7 @@ MIT License
 
 ## Author
 
-Rashik Shahjahan - rashikshahjahan@protonmail.com
-
+Rashik Shahjahan - https://www.rashik.sh/
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
