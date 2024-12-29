@@ -1,10 +1,7 @@
 import os
 import sentencepiece as spm
-from datasets import Dataset
 from sonic_ml.utils.utils import load_and_prepare_dataset
-from flytekit import task, workflow
 
-@task
 def train_tokenizer(dataset_path: str, vocab_size: int, chunk_size: int, model_prefix: str = "tokenizer") -> None:
     """Train a SentencePiece tokenizer on the provided dataset.
     
@@ -47,7 +44,6 @@ def train_tokenizer(dataset_path: str, vocab_size: int, chunk_size: int, model_p
     
     os.remove("temp_train_data.txt")
 
-@workflow
 def train_vocab(vocab_size: int, dataset_path: str, model_prefix: str = "tokenizer", chunk_size: int = 1000):
     """Workflow for training a SentencePiece tokenizer on a dataset.
     

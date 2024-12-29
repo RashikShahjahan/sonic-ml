@@ -2,9 +2,7 @@ import torch
 import os
 from sonic_ml.tokenizer.tokenizer import  Tokenizer
 from sonic_ml.utils.utils import load_model
-from flytekit import task, workflow
 
-@task
 def generate_text(
     model_path: str,
     tokenizer_prefix: str,
@@ -63,7 +61,6 @@ def generate_text(
     generated_text = tokenizer.decode(generated_tokens[0].tolist())
     return generated_text
 
-@task
 def get_latest_checkpoint(model_id: str) -> str:
     """Get the path to the latest checkpoint for a given model ID."""
     checkpoint_dir = os.path.join('checkpoints', model_id)
@@ -72,7 +69,6 @@ def get_latest_checkpoint(model_id: str) -> str:
     latest_checkpoint = max(checkpoints, key=lambda x: int(x.split('_step_')[1].split('.')[0]))
     return os.path.join(checkpoint_dir, latest_checkpoint)
 
-@workflow
 def inference_workflow(model_id: str, tokenizer_prefix: str, prompt: str, max_new_tokens: int = 100, temperature: float = 0.8, top_k: int = 200) -> str:
     """Generate text using a trained model."""
     checkpoint_path = get_latest_checkpoint(model_id=model_id)

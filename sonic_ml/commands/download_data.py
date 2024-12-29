@@ -1,8 +1,6 @@
 import os
 from datasets import load_dataset
-from flytekit import task, workflow
 
-@task
 def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) -> str:
     """Download a dataset from Hugging Face and save it locally.
     
@@ -37,7 +35,6 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
 
 
 
-@workflow
 def download_workflow(dataset_name: str, dataset_data_dir: str, output_dir: str):
     """Workflow for downloading and saving a dataset from Hugging Face Hub locally.
     

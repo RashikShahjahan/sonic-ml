@@ -5,9 +5,7 @@ import datasets
 from sonic_ml.architectures.llama2 import Transformer, ModelArgs
 from sonic_ml.utils.utils import save_checkpoint, preprocess_dataset
 from sonic_ml.utils.utils import load_and_prepare_dataset
-from flytekit import task, workflow
 
-@task   
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
           vocab_size: int, max_seq_len: int, model_id: str, 
           gradient_accumulation_steps: int, dataset_path: str, chunk_size: int,
@@ -176,7 +174,6 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
 
     return model
 
-@workflow
 def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_size: int,
                   dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_prefix: str, 
                   model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int,
