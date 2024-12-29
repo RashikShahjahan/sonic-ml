@@ -1,5 +1,6 @@
 import argparse
 import os
+import yaml
 from sonic_ml.commands.train_vocab import train_vocab
 from sonic_ml.commands.train_model import train_workflow
 from sonic_ml.commands.download_data import download_workflow
@@ -54,8 +55,24 @@ def eval(args):
         tokenizer_prefix=args.tokenizer_prefix
     ))
 
+def load_yaml_config(config_path):
+    """Load configuration from a YAML file."""
+    if not config_path:
+        return {}
+    with open(config_path, 'r') as f:
+        return yaml.safe_load(f)
+
+def merge_configs(yaml_config, cli_args):
+    """Merge YAML config with CLI arguments. CLI args take precedence."""
+    config = yaml_config.copy()
+    # Convert CLI args to dict, excluding None values
+    cli_dict = {k: v for k, v in vars(cli_args).items() if v is not None}
+    config.update(cli_dict)
+    return argparse.Namespace(**config)
+
 def main():
     parser = argparse.ArgumentParser(description='Sonic ML CLI')
+    parser.add_argument('--config', help='Path to YAML config file')
     subparsers = parser.add_subparsers(dest='command', help='Commands')
 
     # Download command
@@ -102,6 +119,14 @@ def main():
 
     args = parser.parse_args()
     setup_dirs()
+
+    # Load YAML config if provided
+    yaml_config = load_yaml_config(args.config)
+    
+    # Merge YAML config with CLI args
+    if yaml_config:
+        command_config = yaml_config.get(args.command, {})
+        args = merge_configs(command_config, args)
 
     if args.command == 'download_data':
         download_data(args)

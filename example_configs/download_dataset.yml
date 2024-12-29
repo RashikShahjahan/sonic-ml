@@ -1,0 +1,3 @@
+download_data:
+  dataset_name: "ai4bharat/sangraha"  # Required
+  dataset_data_dir: "ben/verified"  # Optional, defaults to empty string

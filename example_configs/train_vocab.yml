@@ -1,0 +1,5 @@
+train_vocab:
+  dataset: "ai4bharat/sangraha"     # Required
+  model_id: "sangraha_bn_4096"   # Required
+  vocab_size: 4096           # Optional, defaults to 4096
+  chunk_size: 512           # Optional, defaults to 512
