@@ -78,18 +78,19 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
             checkpoint_path = os.path.join(checkpoint_dir, latest_checkpoint)
             print(f"\nResuming from checkpoint: {checkpoint_path}")
             
-            # Load the checkpoint
-            checkpoint = torch.load(checkpoint_path, weights_only=True)
+            # Use map_location to ensure the checkpoint is loaded onto 'device' directly
+            checkpoint = torch.load(checkpoint_path, map_location=device)
+
             model.load_state_dict(checkpoint['model_state_dict'])
-            
-            # Load optimizer state and explicitly move to correct device
-            optimizer_state = checkpoint['optimizer_state_dict']
-            for state in optimizer_state['state'].values():
-                for k, v in state.items():
-                    if isinstance(v, torch.Tensor):
-                        state[k] = v.to(device)
-            
-            optimizer.load_state_dict(optimizer_state)
+            optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+            # Make sure all optimizer states are also on 'device'
+            for state in optimizer.state.values():
+                if isinstance(state, dict):
+                    for k, v in state.items():
+                        if torch.is_tensor(v):
+                            state[k] = v.to(device)
+
             start_step = checkpoint['step'] + 1
             print(f"Resuming from step {start_step}")
             # When resuming, num_steps represents additional steps
