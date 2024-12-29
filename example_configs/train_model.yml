@@ -1,0 +1,19 @@
+train_model:
+  dataset: "ai4bharat/sangraha"           # Required
+  model_id: "sangraha_bn_4096"        # Required
+  tokenizer_prefix: "sangraha_bn_4096"  # Required
+  
+  # Model architecture parameters
+  vocab_size: 4096                 # Optional, defaults to 4096
+  dim: 288                         # Optional, defaults to 288
+  n_layers: 6                      # Optional, defaults to 6
+  n_heads: 6                       # Optional, defaults to 6
+  max_seq_len: 256                 # Optional, defaults to 256
+  
+  # Training parameters
+  steps: 10000                     # Optional, defaults to 10000
+  batch_size: 64                   # Optional, defaults to 64
+  learning_rate: 0.0005           # Optional, defaults to 0.0005
+  gradient_accumulation_steps: 8   # Optional, defaults to 8
+  chunk_size: 512                 # Optional, defaults to 512
+  resume: True                   # Optional, defaults to false

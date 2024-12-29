@@ -1,0 +1,7 @@
+eval_model:
+  model_id: "sangraha_bn_4096"  # Required
+  prompt: ""ভোর বেলা পাখির ডাক শুনে মনে হয়...""  # Required
+  max_new_tokens: 100        # Optional, defaults to 100
+  temperature: 0.8           # Optional, defaults to 0.8
+  top_k: 200                 # Optional, defaults to 200
+  tokenizer_prefix: "sangraha_bn_4096"  # Required

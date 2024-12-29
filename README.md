@@ -14,13 +14,13 @@ A command-line interface (CLI) tool for training and evaluating language models.
 ### 1. Download a Dataset
 
 ```bash
-sonic-ml download_data --dataset_name "tiny_shakespeare"
+sonic download_data --dataset_name "tiny_shakespeare"
 ```
 
 ### 2. Train a Tokenizer
 
 ```bash
-sonic-ml train_vocab \
+sonic train_vocab \
 --dataset tiny_shakespeare \
 --vocab_size 4096 \
 --model_id shakespeare_small \
@@ -30,7 +30,7 @@ sonic-ml train_vocab \
 ### 3. Train the Model
 
 ```bash
-sonic-ml train_model \
+sonic train_model \
 --dataset tiny_shakespeare \
 --model_id shakespeare_small \
 --tokenizer_prefix shakespeare_small \
@@ -49,7 +49,7 @@ sonic-ml train_model \
 ### 4. Evaluate the Model
 
 ```bash
-sonic-ml eval_model \
+sonic eval_model \
 --model_id shakespeare_small \
 --tokenizer_prefix shakespeare_small \
 --prompt "To be or not to be" \
