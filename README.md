@@ -1,6 +1,6 @@
 # Sonic ML
 
-A command-line interface (CLI) tool for training and evaluating language models. Sonic ML provides a streamlined workflow for downloading datasets, training tokenizers, and training/evaluating transformer-based language models.
+A command-line interface (CLI) tool for training and evaluating language models. It's an easy way to train tiny language models on your personal CPU, GPU or MacBook
 
 ## Features
 
@@ -68,3 +68,12 @@ Rashik Shahjahan - https://www.rashik.sh/
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+## Future Additions
+
+- 🔄 Implementation of additional model architectures 
+- 🚀 Distributed training support for multiple GPUs
+- 📈 Learning rate scheduling and optimization options
+- 🔍 Other tokenization options (BPE, WordPiece)
+- 📝 Support for fine-tuning on custom datasets
+
