@@ -79,7 +79,7 @@ def main():
     # Download command
     download_parser = subparsers.add_parser('download_data', help='Download dataset')
     download_parser.add_argument('--dataset_name', required='--config' not in sys.argv, help='Name of the dataset to download')
-    download_parser.add_argument('--dataset_data_dir', default="", help='Path to the dataset data directory')
+    download_parser.add_argument('--dataset_data_dir', help='Path to the dataset data directory')
 
 
     # Train command

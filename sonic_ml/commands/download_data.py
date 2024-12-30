@@ -11,24 +11,13 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
     
     Returns:
         str: Path to the directory where the dataset was saved
-        
-    The function performs the following steps:
-    1. Checks if the dataset is already downloaded, if not downloads the specified dataset from Hugging Face using the datasets library
-    2. Saves the entire dataset to disk in the specified output directory
-    3. Returns the path to the saved dataset
-    
-    Example:
-        >>> output_path = download_dataset(
-        ...     dataset_name='wikitext',
-        ...     dataset_data_dir='data/raw',
-        ...     output_dir='data/processed'
-        ... )
     """
     if os.path.exists(output_dir):
         print(f"Dataset already downloaded at {output_dir}")
         return output_dir
     
-    dataset = load_dataset(dataset_name, data_dir=dataset_data_dir)
+    print(dataset_name, dataset_data_dir)
+    dataset = load_dataset(dataset_name, data_dir=dataset_data_dir)   
     
     dataset.save_to_disk(output_dir)
     return output_dir
