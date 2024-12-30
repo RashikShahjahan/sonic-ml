@@ -28,16 +28,7 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
         print(f"Dataset already downloaded at {output_dir}")
         return output_dir
     
-    # If dataset_data_dir is provided, use it as a path to load specific files
-    if dataset_data_dir:
-        dataset = load_dataset(
-            dataset_name,
-            data_dir=dataset_data_dir,
-            split="train"  # Add default split
-        )
-    else:
-        # If no data_dir is provided, load the dataset directly from Hub
-        dataset = load_dataset(dataset_name, split="train")
+    dataset = load_dataset(dataset_name, data_dir=dataset_data_dir)
     
     dataset.save_to_disk(output_dir)
     return output_dir
