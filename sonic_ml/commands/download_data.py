@@ -28,7 +28,12 @@ def download_dataset(dataset_name: str, dataset_data_dir: str, output_dir: str) 
         print(f"Dataset already downloaded at {output_dir}")
         return output_dir
     
-    dataset = load_dataset(dataset_name, data_dir=dataset_data_dir)
+    # Split dataset_name into name and config if provided
+    if '/' in dataset_name:
+        name_parts = dataset_name.split('/')
+        dataset = load_dataset('/'.join(name_parts[:-1]), name_parts[-1], data_dir=dataset_data_dir)
+    else:
+        dataset = load_dataset(dataset_name, data_dir=dataset_data_dir)
     
     dataset.save_to_disk(output_dir)
     return output_dir
