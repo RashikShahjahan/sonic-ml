@@ -4,10 +4,10 @@ A command-line interface (CLI) tool for training and evaluating language models.
 
 ## Features
 
-- 🔄 Download datasets from Hugging Face Hub
-- 🔤 Train custom tokenizers using SentencePiece
-- 🧠 Train transformer models with configurable architectures(Currently supports LLaMA-2)
-- 🚀 Evaluate models with customizable generation parameters
+-  Download datasets from Hugging Face Hub
+-  Train custom tokenizers using SentencePiece
+-  Train transformer models with configurable architectures(Currently supports LLaMA-2)
+-  Evaluate models with customizable generation parameters
 
 ## Usage
 
@@ -67,13 +67,6 @@ MIT License
 Rashik Shahjahan - https://www.rashik.sh/
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please feel free to submit a Pull Request. Look at the issues in the repo for ideas.
 
-## Future Additions
-
-- 🔄 Implementation of additional model architectures 
-- 🚀 Distributed training support for multiple GPUs
-- 📈 Learning rate scheduling and optimization options
-- 🔍 Other tokenization options (BPE, WordPiece)
-- 📝 Support for fine-tuning on custom datasets
 
