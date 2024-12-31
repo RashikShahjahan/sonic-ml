@@ -67,6 +67,6 @@ MIT License
 Rashik Shahjahan - https://www.rashik.sh/
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request. Look at the issues in the repo for ideas.
+Contributions are welcome! Please feel free to submit a Pull Request. Look at the issues in the repo for ideas. Please include documentation on any tests that you have ran.
 
 
