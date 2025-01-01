@@ -16,6 +16,10 @@ A command-line interface (CLI) tool for training and evaluating language models.
 ```bash
 sonic download_data --dataset_name "tiny_shakespeare"
 ```
+or
+```bash
+sonic --config example_configs/download_data.yml download_data
+```
 
 ### 2. Train a Tokenizer
 
@@ -25,6 +29,10 @@ sonic train_vocab \
 --vocab_size 4096 \
 --model_id shakespeare_small \
 --chunk_size 512
+```
+or
+```bash
+sonic --config example_configs/train_vocab.yml train_vocab
 ```
 
 ### 3. Train the Model
@@ -45,6 +53,10 @@ sonic train_model \
 --gradient_accumulation_steps 8 \
 --chunk_size 512
 ```
+or
+```bash
+sonic --config example_configs/train_model.yml train_model
+```
 
 ### 4. Evaluate the Model
 
@@ -56,6 +68,10 @@ sonic eval_model \
 --max_new_tokens 100 \
 --temperature 0.8 \
 --top_k 200
+```
+or
+```bash
+sonic --config example_configs/eval_model.yml eval_model
 ```
 
 ## License
