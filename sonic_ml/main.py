@@ -2,7 +2,7 @@ import argparse
 import os
 import yaml
 from sonic_ml.commands.train_vocab import train_vocab
-from sonic_ml.commands.train_model import train_workflow
+from sonic_ml.commands.train_model import train
 from sonic_ml.commands.download_data import download_workflow
 from sonic_ml.commands.eval_model import inference_workflow
 import sys
@@ -28,7 +28,7 @@ def train_vocabulary(args):
     )
 
 def train_model(args):
-    train_workflow(
+    train(
         num_steps=args.steps,
         batch_size=args.batch_size,
         learning_rate=args.learning_rate,
@@ -42,7 +42,8 @@ def train_model(args):
         gradient_accumulation_steps=args.gradient_accumulation_steps,
         chunk_size=args.chunk_size,
         resume_from_checkpoint=args.resume,
-        model_id=args.model_id
+        model_id=args.model_id,
+        model_architecture=args.model_architecture
     )
 
 
@@ -85,35 +86,36 @@ def main():
     # Train command
     train_parser = subparsers.add_parser('train_model', help='Train model')
     train_parser.add_argument('--dataset', required='--config' not in sys.argv, help='Dataset name')
-    train_parser.add_argument('--vocab_size', type=int, default=4096, help='Vocabulary size')
-    train_parser.add_argument('--steps', type=int, default=10000, help='Number of training steps')
-    train_parser.add_argument('--batch_size', type=int, default=64, help='Batch size')
-    train_parser.add_argument('--learning_rate', type=float, default=0.0005, help='Learning rate')
-    train_parser.add_argument('--dim', type=int, default=288, help='Model dimension')
-    train_parser.add_argument('--n_layers', type=int, default=6, help='Number of layers')
-    train_parser.add_argument('--n_heads', type=int, default=6, help='Number of attention heads')
-    train_parser.add_argument('--max_seq_len', type=int, default=256, help='Maximum sequence length')
-    train_parser.add_argument('--gradient_accumulation_steps', type=int, default=8, help='Gradient accumulation steps')
-    train_parser.add_argument('--chunk_size', type=int, default=512, help='Chunk size')
+    train_parser.add_argument('--vocab_size', type=int, help='Vocabulary size')
+    train_parser.add_argument('--steps', type=int,  help='Number of training steps')
+    train_parser.add_argument('--batch_size', type=int, help='Batch size')
+    train_parser.add_argument('--learning_rate', type=float, help='Learning rate')
+    train_parser.add_argument('--dim', type=int, help='Model dimension')
+    train_parser.add_argument('--n_layers', type=int, help='Number of layers')
+    train_parser.add_argument('--n_heads', type=int, help='Number of attention heads')
+    train_parser.add_argument('--max_seq_len', type=int, help='Maximum sequence length')
+    train_parser.add_argument('--gradient_accumulation_steps', type=int, help='Gradient accumulation steps')
+    train_parser.add_argument('--chunk_size', type=int, help='Chunk size')
     train_parser.add_argument('--resume', action='store_true', help='Resume from checkpoint')
     train_parser.add_argument('--model_id', required='--config' not in sys.argv, help='Model ID')
     train_parser.add_argument('--tokenizer_prefix', required='--config' not in sys.argv, help='Tokenizer prefix')
+    train_parser.add_argument('--model_architecture', help='Model architecture')
 
 
     # Train vocab command
     train_vocab_parser = subparsers.add_parser('train_vocab', help='Train vocab')
     train_vocab_parser.add_argument('--dataset', required='--config' not in sys.argv, help='Dataset name')
-    train_vocab_parser.add_argument('--vocab_size', type=int, default=4096, help='Vocabulary size')
-    train_vocab_parser.add_argument('--chunk_size', type=int, default=512, help='Chunk size')
+    train_vocab_parser.add_argument('--vocab_size', type=int, help='Vocabulary size')
+    train_vocab_parser.add_argument('--chunk_size', type=int, help='Chunk size')
     train_vocab_parser.add_argument('--model_id', required='--config' not in sys.argv, help='Model ID')
 
     # Eval command
     eval_parser = subparsers.add_parser('eval_model', help='Evaluate model')
     eval_parser.add_argument('--model_id', required='--config' not in sys.argv, help='Model ID')
     eval_parser.add_argument('--prompt', required='--config' not in sys.argv, help='Input prompt for inference')
-    eval_parser.add_argument('--max_new_tokens', type=int, default=100, help='Maximum new tokens to generate')
-    eval_parser.add_argument('--temperature', type=float, default=0.8, help='Temperature for generation')
-    eval_parser.add_argument('--top_k', type=int, default=200, help='Top-k for generation')
+    eval_parser.add_argument('--max_new_tokens', type=int, help='Maximum new tokens to generate')
+    eval_parser.add_argument('--temperature', type=float, help='Temperature for generation')
+    eval_parser.add_argument('--top_k', type=int, help='Top-k for generation')
     eval_parser.add_argument('--tokenizer_prefix', required='--config' not in sys.argv, help='Tokenizer prefix')
 
 

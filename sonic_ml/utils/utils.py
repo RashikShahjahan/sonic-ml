@@ -1,11 +1,11 @@
 import torch
-from sonic_ml.architectures.llama2 import Transformer, ModelArgs
 from torch.utils.data import DataLoader
 from datasets import Dataset
 from sonic_ml.tokenizer.tokenizer import Tokenizer
 import os
 from typing import List
 import datasets
+import torch.nn as nn
 
 # -----------------------------------------------------------------------------
 # sampling utils
@@ -34,41 +34,55 @@ def sample_top_p(probs, p):
     next_token = torch.gather(probs_idx, -1, next_token)
     return next_token
 
-def save_checkpoint(model: Transformer, optimizer: torch.optim.Optimizer, step: int, loss: float, path: str):
-    """Save model checkpoint including model arguments for complete restoration"""
+def save_checkpoint(model: nn.Module, optimizer: torch.optim.Optimizer, step: int, loss: float, path: str):
+    """Save model checkpoint including model configuration for complete restoration"""
+
+    config = model.config.to_dict() if hasattr(model.config, 'to_dict') else model.config
+   
+
     torch.save({
         'step': step,
         'model_state_dict': model.state_dict(),
         'optimizer_state_dict': optimizer.state_dict(),
         'loss': loss,
-        'model_args': model.params.__dict__,  # Save model arguments as dictionary
+        'config': config,
+        'model_type': model.__class__.__name__,  # Save model type for reconstruction
     }, path)
 
-
-
-def load_model(model_path: str) -> Transformer:
+def load_model(model_path: str) -> nn.Module:
     """
-    Load a trained transformer model from a given path.
+    Load a trained model from a given path.
     
     Args:
         model_path: Path to the saved model state dict
         
     Returns:
-        Loaded Transformer model
+        Loaded model
     """
     # Load the checkpoint
-    checkpoint = torch.load(model_path,weights_only=True)
-    print(checkpoint.keys())
+    checkpoint = torch.load(model_path, weights_only=True)
     
-    # Initialize model with saved args
-    model_args = ModelArgs(**checkpoint['model_args'])
-    model = Transformer(model_args)
+    # Get model type and config
+    model_type = checkpoint['model_type']
+    config = checkpoint['config']
+    
+    # Initialize appropriate model based on saved type
+    if model_type == 'Llama2':
+        from sonic_ml.architectures.llama2 import Llama2
+        model = Llama2(
+            dim=config['hidden_size'],
+            n_layers=config['num_hidden_layers'],
+            n_heads=config['num_attention_heads'],
+            vocab_size=config['vocab_size'],
+            max_seq_len=config['max_position_embeddings']
+        )
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")
     
     # Load the state dict
     model.load_state_dict(checkpoint['model_state_dict'])
     
     return model
-
 
 def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, tokenizer_prefix: str) -> DataLoader:
     """Preprocess a raw dataset into a DataLoader for training.
@@ -135,8 +149,6 @@ def preprocess_dataset(dataset: Dataset, batch_size: int, max_seq_len: int, toke
     )
 
     return train_dataloader
-
-
 
 def load_and_prepare_dataset(dataset_path: str, chunk_size: int = 1000) -> tuple[Dataset, list[int]]:
     """Load a dataset from local storage and prepare it for chunked processing.
