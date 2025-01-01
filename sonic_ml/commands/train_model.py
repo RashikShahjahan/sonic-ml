@@ -2,14 +2,15 @@ import torch
 import os
 from tqdm import tqdm
 import datasets
-from sonic_ml.architectures.llama2 import Transformer, ModelArgs
+from sonic_ml.architectures.model_factory import ModelFactory
 from sonic_ml.utils.utils import save_checkpoint, preprocess_dataset
 from sonic_ml.utils.utils import load_and_prepare_dataset
 
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
           vocab_size: int, max_seq_len: int, model_id: str, 
           gradient_accumulation_steps: int, dataset_path: str, chunk_size: int,
-          batch_size: int, tokenizer_prefix: str, resume_from_checkpoint: bool = False):
+          batch_size: int, tokenizer_prefix: str, resume_from_checkpoint: bool = False,
+          model_architecture: str = "llama2"):
     """Train a Transformer model on chunked dataset with gradient accumulation.
     
     Args:
@@ -50,11 +51,14 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
         else torch.device("cpu")
     )
     
-    model_args = ModelArgs(
-        dim=dim, n_layers=n_layers, n_heads=n_heads,
-        vocab_size=vocab_size, max_seq_len=max_seq_len,
+    model = ModelFactory.create_model(
+        architecture=model_architecture,
+        dim=dim,
+        n_layers=n_layers,
+        n_heads=n_heads,
+        vocab_size=vocab_size,
+        max_seq_len=max_seq_len,
     )
-    model = Transformer(model_args)
     
     # Initialize optimizer
     optimizer = model.configure_optimizers(
@@ -174,42 +178,3 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
             )
 
     return model
-
-def train_workflow(num_steps: int, batch_size: int, learning_rate: float, vocab_size: int,
-                  dim: int, n_layers: int, n_heads: int, max_seq_len: int, tokenizer_prefix: str, 
-                  model_id: str, dataset_path: str, gradient_accumulation_steps: int, chunk_size: int,
-                  resume_from_checkpoint: bool = False):
-    """Orchestrates the complete training workflow for the transformer model.
-    
-    Args:
-        num_steps (int): Total number of training steps
-        batch_size (int): Number of samples per batch
-        learning_rate (float): Learning rate for the optimizer
-        vocab_size (int): Size of the vocabulary
-        dim (int): Model dimension/embedding size
-        n_layers (int): Number of transformer layers
-        n_heads (int): Number of attention heads
-        max_seq_len (int): Maximum sequence length for input texts
-        tokenizer_prefix (str): Prefix for the tokenizer model file
-        model_id (str): Unique identifier for the model (used in checkpoint names)
-        dataset_path (str): Path to the dataset on disk
-        gradient_accumulation_steps (int): Number of steps to accumulate gradients
-        chunk_size (int): Number of samples per chunk
-    """
-    # Remove dataset loading from workflow
-    train(
-        num_steps=num_steps, 
-        learning_rate=learning_rate, 
-        dim=dim,
-        n_layers=n_layers,
-        n_heads=n_heads,
-        vocab_size=vocab_size,
-        max_seq_len=max_seq_len,
-        model_id=model_id,
-        gradient_accumulation_steps=gradient_accumulation_steps,
-        dataset_path=dataset_path,
-        chunk_size=chunk_size,
-        batch_size=batch_size,
-        tokenizer_prefix=tokenizer_prefix,
-        resume_from_checkpoint=resume_from_checkpoint
-    )

@@ -1,7 +1,7 @@
 eval_model:
-  model_id: "sangraha_bn_4096"  # Required
-  prompt: ""ভোর বেলা পাখির ডাক শুনে মনে হয়...""  # Required
+  model_id: "TinyStories_4096"  # Required
+  prompt: "Once upon a time, there was a little girl named Alice."  # Required
   max_new_tokens: 100        # Optional, defaults to 100
-  temperature: 0.8           # Optional, defaults to 0.8
+  temperature: 0.0           # Optional, defaults to 0.8
   top_k: 200                 # Optional, defaults to 200
-  tokenizer_prefix: "sangraha_bn_4096"  # Required
+  tokenizer_prefix: "TinyStories_4096"  # Required
