@@ -25,9 +25,9 @@ sonic --config example_configs/download_data.yml download_data
 
 ```bash
 sonic train_vocab \
---dataset tiny_shakespeare \
+--dataset "roneneldan/TinyStories" \
 --vocab_size 4096 \
---model_id shakespeare_small \
+--model_id "TinyStories_4096" \
 --chunk_size 512
 ```
 or
@@ -39,9 +39,9 @@ sonic --config example_configs/train_vocab.yml train_vocab
 
 ```bash
 sonic train_model \
---dataset tiny_shakespeare \
---model_id shakespeare_small \
---tokenizer_prefix shakespeare_small \
+--dataset "roneneldan/TinyStories" \
+--model_id "TinyStories_4096" \
+--tokenizer_prefix "TinyStories_4096" \
 --vocab_size 4096 \
 --dim 288 \
 --n_layers 6 \
@@ -63,9 +63,9 @@ sonic --config example_configs/train_model.yml train_model
 
 ```bash
 sonic eval_model \
---model_id shakespeare_small \
---tokenizer_prefix shakespeare_small \
---prompt "To be or not to be" \
+--model_id "TinyStories_4096" \
+--tokenizer_prefix "TinyStories_4096" \
+--prompt "My name is" \
 --max_new_tokens 100 \
 --temperature 0.8 \
 --top_k 200
