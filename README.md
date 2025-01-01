@@ -51,7 +51,8 @@ sonic train_model \
 --steps 10000 \
 --learning_rate 0.0005 \
 --gradient_accumulation_steps 8 \
---chunk_size 512
+--chunk_size 512 \
+--model_architecture llama2
 ```
 or
 ```bash
