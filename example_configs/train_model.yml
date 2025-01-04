@@ -5,16 +5,16 @@ train_model:
   
   # Model architecture parameters
   vocab_size: 4096                
-  dim: 288                         
-  n_layers: 6                      
-  n_heads: 6                      
+  dim: 64                         
+  n_layers: 5                      
+  n_heads: 8                      
   max_seq_len: 256                
   
   # Training parameters
-  steps: 500                 
-  batch_size: 32           
-  learning_rate: 0.0005          
-  gradient_accumulation_steps: 8  
+  steps: 10000                 
+  batch_size: 128           
+  learning_rate: 0.001          
+  gradient_accumulation_steps: 2  
   chunk_size: 512                
   resume: false    
   model_architecture: llama2     
