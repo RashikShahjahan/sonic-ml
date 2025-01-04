@@ -17,4 +17,4 @@ train_model:
   gradient_accumulation_steps: 2  
   chunk_size: 512                
   resume: false    
-  model_architecture: llama2     
+  model_architecture: llama 

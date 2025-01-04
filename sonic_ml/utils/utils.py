@@ -67,9 +67,9 @@ def load_model(model_path: str) -> nn.Module:
     config = checkpoint['config']
     
     # Initialize appropriate model based on saved type
-    if model_type == 'Llama2':
-        from sonic_ml.architectures.llama2 import Llama2
-        model = Llama2(
+    if model_type == 'Llama':
+        from sonic_ml.architectures.llama import Llama
+        model = Llama(
             dim=config['hidden_size'],
             n_layers=config['num_hidden_layers'],
             n_heads=config['num_attention_heads'],

@@ -10,7 +10,7 @@ def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads
           vocab_size: int, max_seq_len: int, model_id: str, 
           gradient_accumulation_steps: int, dataset_path: str, chunk_size: int,
           batch_size: int, tokenizer_prefix: str, resume_from_checkpoint: bool = False,
-          model_architecture: str = "llama2"):
+          model_architecture: str = "llama"):
     """Train a Transformer model on chunked dataset with gradient accumulation.
     
     Args:

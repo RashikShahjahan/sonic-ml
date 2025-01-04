@@ -6,7 +6,7 @@ A command-line interface (CLI) tool for training and evaluating language models.
 
 -  Download datasets from Hugging Face Hub
 -  Train custom tokenizers using SentencePiece
--  Train transformer models with configurable architectures(Currently supports LLaMA-2)
+-  Train transformer models with configurable architectures(Currently supports LLaMA)
 -  Evaluate models with customizable generation parameters
 
 ## Usage
@@ -52,7 +52,7 @@ sonic train_model \
 --learning_rate 0.0005 \
 --gradient_accumulation_steps 8 \
 --chunk_size 512 \
---model_architecture llama2
+--model_architecture llama
 ```
 or
 ```bash

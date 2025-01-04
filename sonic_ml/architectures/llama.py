@@ -3,7 +3,7 @@ import torch.nn as nn
 from transformers import LlamaConfig, LlamaForCausalLM
 import torch.nn.functional as F
 
-class Llama2(nn.Module):
+class Llama(nn.Module):
     def __init__(self, dim, n_layers, n_heads, vocab_size, max_seq_len):
         super().__init__()
         # Initialize configuration
