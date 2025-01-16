@@ -1,7 +1,7 @@
 import torch
 import os
 from sonic_ml.tokenizer.tokenizer import  Tokenizer
-from sonic_ml.utils.utils import load_model
+from sonic_ml.utils.core import load_model
 
 def generate_text(
     model_path: str,
