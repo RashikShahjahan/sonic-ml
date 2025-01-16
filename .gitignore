@@ -13,6 +13,7 @@ wheels/
 *.bin
 *.model
 *.vocab
+*.db
 
 datasets/
 checkpoints/
