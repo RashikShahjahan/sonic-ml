@@ -6,6 +6,7 @@ from sonic_ml.commands.train_model import train
 from sonic_ml.commands.download_data import download_workflow
 from sonic_ml.commands.eval_model import inference_workflow
 import sys
+from sonic_ml.utils.db import init_db, update_task_status, create_task, list_tasks
 
 def setup_dirs():
     os.makedirs("datasets", exist_ok=True)
@@ -72,6 +73,19 @@ def merge_configs(yaml_config, cli_args):
     config.update(cli_dict)
     return argparse.Namespace(**config)
 
+def list_all_tasks():
+    """List all tasks and their status"""
+    tasks = list_tasks()
+    
+    if not tasks:
+        print("No tasks found")
+        return
+        
+    print("ID                                     COMMAND          STATUS")
+    print("-" * 70)
+    for task_id, command_type, status in tasks:
+        print(f"{task_id}  {command_type:<15} {status}")
+
 def main():
     parser = argparse.ArgumentParser(description='Sonic ML CLI')
     parser.add_argument('--config', help='Path to YAML config file')
@@ -118,7 +132,7 @@ def main():
     eval_parser.add_argument('--top_k', type=int, help='Top-k for generation')
     eval_parser.add_argument('--tokenizer_prefix', required='--config' not in sys.argv, help='Tokenizer prefix')
 
-
+    subparsers.add_parser('list', help='List all tasks')
 
     args = parser.parse_args()
     setup_dirs()
@@ -131,14 +145,30 @@ def main():
         command_config = yaml_config.get(args.command, {})
         args = merge_configs(command_config, args)
 
-    if args.command == 'download_data':
-        download_data(args)
-    elif args.command == 'train_vocab':
-        train_vocabulary(args)
-    elif args.command == 'train_model':
-        train_model(args)
-    elif args.command == 'eval_model':
-        eval(args)
+    init_db() 
+    if args.command == 'list':
+        list_all_tasks()
+        return
+        
+    # For other commands, wrap them in try-except to track status
+    if args.command in ['download_data', 'train_vocab', 'train_model', 'eval_model']:
+        task_id = create_task(args.command)
+        try:
+            if args.command == 'download_data':
+                download_data(args)
+            elif args.command == 'train_vocab':
+                train_vocabulary(args)
+            elif args.command == 'train_model':
+                train_model(args)
+            elif args.command == 'eval_model':
+                eval(args)
+            update_task_status(task_id, 'complete')
+        except KeyboardInterrupt:
+            update_task_status(task_id, 'cancelled')
+            raise
+        except Exception:
+            update_task_status(task_id, 'failed')
+            raise
     else:
         parser.print_help()
 

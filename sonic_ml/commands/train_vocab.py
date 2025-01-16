@@ -1,6 +1,6 @@
 import os
 import sentencepiece as spm
-from sonic_ml.utils.utils import load_and_prepare_dataset
+from sonic_ml.utils.core import load_and_prepare_dataset
 
 def train_tokenizer(dataset_path: str, vocab_size: int, chunk_size: int, model_prefix: str = "tokenizer") -> None:
     """Train a SentencePiece tokenizer on the provided dataset.

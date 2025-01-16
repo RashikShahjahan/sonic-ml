@@ -3,8 +3,7 @@ import os
 from tqdm import tqdm
 import datasets
 from sonic_ml.architectures.model_factory import ModelFactory
-from sonic_ml.utils.utils import save_checkpoint, preprocess_dataset
-from sonic_ml.utils.utils import load_and_prepare_dataset
+from sonic_ml.utils.core import save_checkpoint, preprocess_dataset, load_and_prepare_dataset
 
 def train(num_steps: int, learning_rate: float, dim: int, n_layers: int, n_heads: int, 
           vocab_size: int, max_seq_len: int, model_id: str, 
