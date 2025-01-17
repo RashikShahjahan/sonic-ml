@@ -1,62 +1,22 @@
 import argparse
 import os
 import yaml
-from sonic_ml.commands.train_vocab import train_vocab
-from sonic_ml.commands.train_model import train
-from sonic_ml.commands.download_data import download_workflow
-from sonic_ml.commands.eval_model import inference_workflow
 import sys
-from sonic_ml.utils.db import init_db, update_task_status, create_task, list_tasks
+from celery.result import AsyncResult
+from celery.app.control import Inspect
+from sonic_ml.tasks import (
+    download_data_task,
+    train_vocab_task,
+    train_model_task,
+    eval_model_task,
+    app  # Import the Celery app instance
+)
 
 def setup_dirs():
     os.makedirs("datasets", exist_ok=True)
     os.makedirs("checkpoints", exist_ok=True)
     os.makedirs("tokenizers", exist_ok=True)
 
-def download_data(args):
-    download_workflow(
-        dataset_name=args.dataset_name,
-        dataset_data_dir=args.dataset_data_dir,
-        output_dir=f"datasets/{args.dataset_name}"
-    )
-
-def train_vocabulary(args):
-    train_vocab(
-        vocab_size=args.vocab_size,
-        dataset_path=f"datasets/{args.dataset}",
-        model_prefix=f"{args.model_id}",
-        chunk_size=args.chunk_size
-    )
-
-def train_model(args):
-    train(
-        num_steps=args.steps,
-        batch_size=args.batch_size,
-        learning_rate=args.learning_rate,
-        vocab_size=args.vocab_size,
-        dataset_path=f"datasets/{args.dataset}",
-        dim=args.dim,
-        n_layers=args.n_layers,
-        n_heads=args.n_heads,
-        max_seq_len=args.max_seq_len,
-        tokenizer_prefix=args.tokenizer_prefix,
-        gradient_accumulation_steps=args.gradient_accumulation_steps,
-        chunk_size=args.chunk_size,
-        resume_from_checkpoint=args.resume,
-        model_id=args.model_id,
-        model_architecture=args.model_architecture
-    )
-
-
-def eval(args):
-    print(inference_workflow(
-        model_id=args.model_id,
-        prompt=args.prompt,
-        max_new_tokens=args.max_new_tokens,
-        temperature=args.temperature,
-        top_k=args.top_k,
-        tokenizer_prefix=args.tokenizer_prefix
-    ))
 
 def load_yaml_config(config_path):
     """Load configuration from a YAML file."""
@@ -74,17 +34,50 @@ def merge_configs(yaml_config, cli_args):
     return argparse.Namespace(**config)
 
 def list_all_tasks():
-    """List all tasks and their status"""
-    tasks = list_tasks()
+    """List all active tasks and their status"""
+    inspector = Inspect(app=app)
     
-    if not tasks:
-        print("No tasks found")
+    # Get tasks from different states
+    active = inspector.active() or {}
+    reserved = inspector.reserved() or {}
+    scheduled = inspector.scheduled() or {}
+    
+    if not any([active, reserved, scheduled]):
+        print("No active tasks found")
+        print("\nTo see historical tasks, you can still use Flower:")
+        print("Run 'celery -A sonic_ml.tasks flower' to start the monitoring interface")
         return
-        
-    print("ID                                     COMMAND          STATUS")
-    print("-" * 70)
-    for task_id, command_type, status in tasks:
-        print(f"{task_id}  {command_type:<15} {status}")
+
+    def print_tasks(task_dict, state):
+        for worker, tasks in task_dict.items():
+            if tasks:
+                print(f"\n{state} tasks on {worker}:")
+                for task in tasks:
+                    task_id = task.get('id', 'Unknown')
+                    name = task.get('name', 'Unknown')
+                    args = task.get('args', [])
+                    kwargs = task.get('kwargs', {})
+                    print(f"  - ID: {task_id}")
+                    print(f"    Command: {name}")
+                    if args or kwargs:
+                        print(f"    Arguments: {args} {kwargs}")
+                    print()
+
+    if active:
+        print_tasks(active, "Currently running")
+    if reserved:
+        print_tasks(reserved, "Reserved")
+    if scheduled:
+        print_tasks(scheduled, "Scheduled")
+
+def get_task_status(task_id):
+    """Get status of a specific task"""
+    result = AsyncResult(task_id)
+    status = result.status
+    if status == 'FAILURE':
+        error = str(result.result)  # Get the error message
+        return f"Task {task_id}: {status}\nError: {error}"
+    return f"Task {task_id}: {status}"
 
 def main():
     parser = argparse.ArgumentParser(description='Sonic ML CLI')
@@ -132,6 +125,10 @@ def main():
     eval_parser.add_argument('--top_k', type=int, help='Top-k for generation')
     eval_parser.add_argument('--tokenizer_prefix', required='--config' not in sys.argv, help='Tokenizer prefix')
 
+    # Add status command
+    status_parser = subparsers.add_parser('status', help='Check task status')
+    status_parser.add_argument('task_id', help='Task ID to check')
+
     subparsers.add_parser('list', help='List all tasks')
 
     args = parser.parse_args()
@@ -145,29 +142,61 @@ def main():
         command_config = yaml_config.get(args.command, {})
         args = merge_configs(command_config, args)
 
-    init_db() 
     if args.command == 'list':
         list_all_tasks()
         return
-        
-    # For other commands, wrap them in try-except to track status
+    elif args.command == 'status':
+        print(get_task_status(args.task_id))
+        return
+
+    # For other commands, start them as Celery tasks
     if args.command in ['download_data', 'train_vocab', 'train_model', 'eval_model']:
-        task_id = create_task(args.command)
         try:
             if args.command == 'download_data':
-                download_data(args)
+                task = download_data_task.delay(
+                    dataset_name=args.dataset_name,
+                    dataset_data_dir=args.dataset_data_dir,
+                    output_dir=f"datasets/{args.dataset_name}"
+                )
             elif args.command == 'train_vocab':
-                train_vocabulary(args)
+                task = train_vocab_task.delay(
+                    vocab_size=args.vocab_size,
+                    dataset_path=f"datasets/{args.dataset}",
+                    model_prefix=f"{args.model_id}",
+                    chunk_size=args.chunk_size
+                )
             elif args.command == 'train_model':
-                train_model(args)
+                task = train_model_task.delay(
+                    num_steps=args.steps,
+                    batch_size=args.batch_size,
+                    learning_rate=args.learning_rate,
+                    vocab_size=args.vocab_size,
+                    dataset_path=f"datasets/{args.dataset}",
+                    dim=args.dim,
+                    n_layers=args.n_layers,
+                    n_heads=args.n_heads,
+                    max_seq_len=args.max_seq_len,
+                    tokenizer_prefix=args.tokenizer_prefix,
+                    gradient_accumulation_steps=args.gradient_accumulation_steps,
+                    chunk_size=args.chunk_size,
+                    resume_from_checkpoint=args.resume,
+                    model_id=args.model_id,
+                    model_architecture=args.model_architecture
+                )
             elif args.command == 'eval_model':
-                eval(args)
-            update_task_status(task_id, 'complete')
-        except KeyboardInterrupt:
-            update_task_status(task_id, 'cancelled')
-            raise
-        except Exception:
-            update_task_status(task_id, 'failed')
+                task = eval_model_task.delay(
+                    model_id=args.model_id,
+                    prompt=args.prompt,
+                    max_new_tokens=args.max_new_tokens,
+                    temperature=args.temperature,
+                    top_k=args.top_k,
+                    tokenizer_prefix=args.tokenizer_prefix
+                )
+            
+            print(f"Started {args.command} in background with task ID: {task.id}")
+            
+        except Exception as e:
+            print(f"Task failed: {str(e)}")
             raise
     else:
         parser.print_help()
