@@ -5,14 +5,14 @@ train_model:
   
   # Model architecture parameters
   vocab_size: 4096                
-  dim: 288                         
+  dim: 64                         
   n_layers: 6                      
   n_heads: 6                      
   max_seq_len: 256                
   
   # Training parameters
   steps: 10000                 
-  batch_size: 32           
+  batch_size: 8           
   learning_rate: 0.001          
   gradient_accumulation_steps: 8
   chunk_size: 512                
