@@ -8,7 +8,6 @@ A command-line interface (CLI) tool for training and evaluating language models.
 -  Train custom tokenizers using SentencePiece
 -  Train transformer models with configurable architectures(Currently supports LLaMA)
 -  Evaluate models with customizable generation parameters
--  Distributed training support with Celery
 -  Model checkpointing and training resumption
 -  Progress monitoring with Flower dashboard
 
