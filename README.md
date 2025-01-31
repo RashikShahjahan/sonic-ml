@@ -8,6 +8,15 @@ A command-line interface (CLI) tool for training and evaluating language models.
 -  Train custom tokenizers using SentencePiece
 -  Train transformer models with configurable architectures(Currently supports LLaMA)
 -  Evaluate models with customizable generation parameters
+-  Distributed training support with Celery
+-  Model checkpointing and training resumption
+-  Progress monitoring with Flower dashboard
+
+## Installation
+
+```bash
+pip install sonic-ml
+```
 
 ## Usage
 
@@ -16,7 +25,7 @@ A command-line interface (CLI) tool for training and evaluating language models.
 ```bash
 sonic download_data --dataset_name "tiny_shakespeare"
 ```
-or
+or use a configuration file:
 ```bash
 sonic --config example_configs/download_data.yml download_data
 ```
@@ -30,7 +39,7 @@ sonic train_vocab \
 --model_id "TinyStories_4096" \
 --chunk_size 512
 ```
-or
+or use a configuration file:
 ```bash
 sonic --config example_configs/train_vocab.yml train_vocab
 ```
@@ -73,6 +82,23 @@ sonic eval_model \
 or
 ```bash
 sonic --config example_configs/eval_model.yml eval_model
+```
+
+### 5. Monitor Training Progress
+
+Start the Flower monitoring dashboard:
+```bash
+celery -A sonic_ml.tasks flower
+```
+
+Check task status:
+```bash
+sonic status <task_id>
+```
+
+List all running tasks:
+```bash
+sonic list
 ```
 
 ## License
